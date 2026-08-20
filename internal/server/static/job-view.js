@@ -34,7 +34,7 @@
         return `
             <div class="space-y-5">
                 <div class="flex items-start gap-4">
-                    <a href="#/" class="mt-1 shrink-0 rounded-lg border border-surface1 p-2 text-overlay1 hover:bg-surface0 hover:text-text" title="Back to tasks">
+                    <a href="#/" class="mt-1 shrink-0 rounded-lg bg-surface0/70 p-2 text-overlay1 hover:bg-surface1 hover:text-text" title="Back to tasks">
                         <i data-lucide="arrow-left" class="h-4 w-4"></i>
                     </a>
                     <div class="min-w-0 flex-1">
@@ -49,18 +49,18 @@
                         <p class="mt-1 font-mono text-xs text-overlay1">${escapeHtml(job.id)}</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
-                        <button type="button" data-cancel class="hidden items-center gap-2 rounded-lg border border-red/40 px-3 py-1.5 text-sm text-red hover:bg-red/10">
+                        <button type="button" data-cancel class="hidden items-center gap-2 rounded-lg bg-red/10 px-3 py-1.5 text-sm text-red hover:bg-red/20">
                             <i data-lucide="square" class="h-4 w-4"></i>
                             <span>Cancel</span>
                         </button>
-                        <button type="button" data-delete class="hidden items-center gap-2 rounded-lg border border-surface1 px-3 py-1.5 text-sm text-subtext1 hover:bg-surface0">
+                        <button type="button" data-delete class="hidden items-center gap-2 rounded-lg bg-surface0/70 px-3 py-1.5 text-sm text-subtext1 hover:bg-surface1">
                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                             <span>Delete</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="rounded-xl border border-surface0 bg-mantle p-4">
+                <div class="rounded-xl bg-mantle p-4">
                     <div class="flex items-baseline justify-between gap-3">
                         <span data-progress-message class="truncate text-sm text-subtext1">Waiting for the runner</span>
                         <span data-elapsed class="shrink-0 font-mono text-sm text-overlay1"></span>
@@ -76,7 +76,7 @@
 
                 <div data-summary class="flex flex-wrap gap-2"></div>
 
-                <div data-error class="hidden rounded-xl border border-red/40 bg-red/10 p-4">
+                <div data-error class="hidden rounded-xl bg-red/10 p-4">
                     <div class="flex items-center gap-2 text-sm font-medium text-red">
                         <i data-lucide="circle-alert" class="h-4 w-4"></i>
                         <span data-error-message></span>
@@ -92,11 +92,11 @@
 
                 <div data-result-section class="hidden space-y-3">
                     <h2 class="font-display text-sm font-semibold text-subtext1">Result</h2>
-                    <div data-result class="rounded-xl border border-surface0 bg-mantle p-4"></div>
+                    <div data-result class="rounded-xl bg-mantle p-4"></div>
                 </div>
 
-                <div class="overflow-hidden rounded-xl border border-surface0 bg-crust">
-                    <div class="flex items-center justify-between border-b border-surface0 bg-mantle px-4 py-2.5">
+                <div class="overflow-hidden rounded-xl bg-crust">
+                    <div class="flex items-center justify-between bg-mantle px-4 py-2.5">
                         <h2 class="font-display text-sm font-semibold text-subtext1">Log</h2>
                         <label class="flex items-center gap-2 text-xs text-overlay1">
                             <input type="checkbox" data-follow checked class="accent-mauve">
@@ -112,7 +112,7 @@
         const chips = [];
         (job.inputs || []).forEach((input) => {
             chips.push(
-                `<span class="inline-flex items-center gap-1.5 rounded-lg border border-surface0 bg-mantle px-2.5 py-1 text-xs text-subtext0"><i data-lucide="paperclip" class="h-3 w-3 text-mauve"></i>${escapeHtml(
+                `<span class="inline-flex items-center gap-1.5 rounded-lg bg-surface0/60 px-2.5 py-1 text-xs text-subtext0"><i data-lucide="paperclip" class="h-3 w-3 text-mauve"></i>${escapeHtml(
                     input.filename,
                 )} <span class="text-overlay0">${escapeHtml(formatBytes(input.bytes))}</span></span>`,
             );
@@ -120,7 +120,7 @@
         Object.entries(job.params || {}).forEach(([key, value]) => {
             if (value === '' || value === null || value === undefined) return;
             chips.push(
-                `<span class="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-surface0 bg-mantle px-2.5 py-1 text-xs text-overlay1"><span class="shrink-0 text-subtext0">${escapeHtml(
+                `<span class="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-surface0/60 px-2.5 py-1 text-xs text-overlay1"><span class="shrink-0 text-subtext0">${escapeHtml(
                     key,
                 )}</span><span class="max-w-[16rem] truncate font-mono text-subtext1" title="${escapeHtml(value)}">${escapeHtml(value)}</span></span>`,
             );
@@ -133,17 +133,17 @@
         const icon = KIND_ICONS[kind] || 'file';
         const toggle =
             kind === 'markdown'
-                ? `<button type="button" data-toggle class="rounded-md border border-surface1 px-2 py-1 text-[11px] text-subtext0 hover:bg-surface0">Source</button>`
+                ? `<button type="button" data-toggle class="rounded-md bg-surface0/70 px-2 py-1 text-[11px] text-subtext0 hover:bg-surface1">Source</button>`
                 : '';
         return `
-            <div class="overflow-hidden rounded-xl border border-surface0 bg-mantle">
-                <div class="flex items-center gap-3 border-b border-surface0 px-4 py-2.5">
+            <div class="overflow-hidden rounded-xl bg-mantle">
+                <div class="flex items-center gap-3 px-4 py-2.5">
                     <i data-lucide="${icon}" class="h-4 w-4 shrink-0 text-mauve"></i>
                     <span class="min-w-0 flex-1 truncate text-sm text-text">${escapeHtml(artifact.label || artifactName(artifact))}</span>
                     <span class="shrink-0 rounded bg-surface0 px-1.5 py-0.5 font-mono text-[10px] uppercase text-subtext0">${escapeHtml(kind)}</span>
                     <span class="shrink-0 text-xs text-overlay1">${escapeHtml(formatBytes(artifact.bytes))}</span>
                     ${toggle}
-                    <a href="${escapeHtml(url)}" download class="shrink-0 rounded-md border border-surface1 p-1.5 text-subtext0 hover:bg-surface0 hover:text-mauve" title="Download">
+                    <a href="${escapeHtml(url)}" download class="shrink-0 rounded-md bg-surface0/70 p-1.5 text-subtext0 hover:bg-surface1 hover:text-mauve" title="Download">
                         <i data-lucide="download" class="h-4 w-4"></i>
                     </a>
                 </div>
@@ -161,7 +161,7 @@
         if (kind === 'image') {
             body.innerHTML = `<img src="${escapeHtml(inlineURL(url))}" alt="${escapeHtml(
                 artifact.label || artifactName(artifact),
-            )}" class="mx-auto max-h-[28rem] rounded-lg border border-surface0">`;
+            )}" class="mx-auto max-h-[28rem] rounded-lg">`;
             return;
         }
         if (kind === 'archive' || kind === 'other') {
@@ -216,13 +216,13 @@
 
     function comparisonHtml(before, after, beforeURL, afterURL) {
         return `
-            <div class="overflow-hidden rounded-xl border border-surface0 bg-mantle">
-                <div class="flex items-center gap-2 border-b border-surface0 px-4 py-2.5">
+            <div class="overflow-hidden rounded-xl bg-mantle">
+                <div class="flex items-center gap-2 px-4 py-2.5">
                     <i data-lucide="columns-2" class="h-4 w-4 text-mauve"></i>
                     <span class="text-sm text-text">Before and after</span>
                 </div>
                 <div class="p-4">
-                    <div data-cmp class="relative select-none overflow-hidden rounded-lg border border-surface0">
+                    <div data-cmp class="relative select-none overflow-hidden rounded-lg">
                         <img src="${escapeHtml(inlineURL(afterURL))}" alt="${escapeHtml(after.label || 'After')}" class="block w-full">
                         <img data-cmp-before src="${escapeHtml(inlineURL(beforeURL))}" alt="${escapeHtml(before.label || 'Before')}"
                              class="absolute inset-0 h-full w-full object-fill" style="clip-path: inset(0 50% 0 0)">
@@ -525,7 +525,7 @@
             try {
                 job = await apiJSON(`/api/jobs/${encodeURIComponent(view.id)}`);
             } catch (error) {
-                container.innerHTML = `<div class="rounded-xl border border-red/40 bg-red/10 p-6 text-sm text-red">Could not load job ${escapeHtml(
+                container.innerHTML = `<div class="rounded-xl bg-red/10 p-6 text-sm text-red">Could not load job ${escapeHtml(
                     view.id,
                 )}: ${escapeHtml(error.message)}</div>`;
                 return;

@@ -32,7 +32,7 @@
                 <input type="file" class="hidden" data-input="${escapeHtml(param.name)}"
                        ${param.accept ? `accept="${escapeHtml(param.accept)}"` : ''}>
             </div>
-            <div data-chosen class="mt-2 hidden items-center gap-3 rounded-lg border border-surface1 bg-surface0/50 px-3 py-2">
+            <div data-chosen class="mt-2 hidden items-center gap-3 rounded-lg bg-surface0/50 px-3 py-2">
                 <i data-lucide="file" class="w-4 h-4 text-mauve shrink-0"></i>
                 <span data-chosen-name class="flex-1 min-w-0 truncate text-sm text-text"></span>
                 <span data-chosen-size class="text-xs text-overlay1 shrink-0"></span>
@@ -44,12 +44,12 @@
 
     function textControl(param) {
         return `<input type="text" data-input="${escapeHtml(param.name)}" value="${escapeHtml(param.default || '')}"
-                       class="mt-2 w-full rounded-lg border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:border-mauve focus:outline-none">`;
+                       class="mt-2 w-full rounded-lg bg-surface0/60 px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:outline-none focus:ring-1 focus:ring-mauve/60">`;
     }
 
     function textareaControl(param) {
         return `<textarea rows="5" data-input="${escapeHtml(param.name)}"
-                          class="mt-2 w-full rounded-lg border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:border-mauve focus:outline-none resize-y">${escapeHtml(param.default || '')}</textarea>`;
+                          class="mt-2 w-full rounded-lg bg-surface0/60 px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:outline-none focus:ring-1 focus:ring-mauve/60 resize-y">${escapeHtml(param.default || '')}</textarea>`;
     }
 
     function selectControl(param) {
@@ -60,7 +60,7 @@
             })
             .join('');
         return `<select data-input="${escapeHtml(param.name)}"
-                        class="mt-2 w-full rounded-lg border border-surface1 bg-mantle px-3 py-2 text-sm text-text focus:border-mauve focus:outline-none">${options}</select>`;
+                        class="mt-2 w-full rounded-lg bg-surface0/60 px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-mauve/60">${options}</select>`;
     }
 
     function numberControl(param) {
@@ -111,9 +111,10 @@
                       param.type === 'number' ? '<span data-value class="font-mono text-sm text-mauve"></span>' : ''
                   }</div>`;
 
+        const wide = param.type === 'textarea' || param.type === 'file';
         return `
             <div data-param="${escapeHtml(param.name)}" data-type="${escapeHtml(param.type)}"${when}
-                 class="rounded-xl border border-surface0 bg-mantle/40 p-4">
+                 class="rounded-xl bg-mantle/50 p-4${wide ? ' sm:col-span-2 min-[1800px]:col-span-3' : ''}">
                 ${heading}
                 ${body}
                 ${helpHtml(param)}
@@ -126,7 +127,7 @@
         container.innerHTML = `
             <div class="space-y-5">
                 <div class="flex items-start gap-4">
-                    <a href="#/" class="mt-1 shrink-0 rounded-lg border border-surface1 p-2 text-overlay1 hover:text-text hover:bg-surface0" title="Back to tasks">
+                    <a href="#/" class="mt-1 shrink-0 rounded-lg bg-surface0/70 p-2 text-overlay1 hover:bg-surface1 hover:text-text" title="Back to tasks">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     </a>
                     <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-${color}/15 text-${color}">
@@ -142,8 +143,8 @@
                 </div>
 
                 <form data-form class="space-y-4">
-                    ${(task.params || []).map(paramHtml).join('')}
-                    <div data-form-error class="hidden rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red"></div>
+                    <div class="grid gap-3 sm:grid-cols-2 min-[1800px]:grid-cols-3">${(task.params || []).map(paramHtml).join('')}</div>
+                    <div data-form-error class="hidden rounded-lg bg-red/10 px-3 py-2 text-sm text-red"></div>
                     <div class="flex items-center gap-3 pt-1">
                         <button type="submit" data-submit
                                 class="inline-flex items-center gap-2 rounded-lg bg-mauve px-4 py-2 text-sm font-semibold text-crust hover:bg-lavender disabled:opacity-60">
@@ -151,7 +152,7 @@
                             <span>Run task</span>
                         </button>
                         <button type="reset" data-reset
-                                class="inline-flex items-center gap-2 rounded-lg border border-surface1 px-4 py-2 text-sm text-subtext1 hover:bg-surface0">
+                                class="inline-flex items-center gap-2 rounded-lg bg-surface0/70 px-4 py-2 text-sm text-subtext1 hover:bg-surface1">
                             <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
                             <span>Reset</span>
                         </button>

@@ -157,6 +157,8 @@ func (r *Runner) execute(rec *record, task catalog.Task, values, files map[strin
 	args := buildArgs(task, filepath.Join(r.scriptsDir, task.Project), rec.outDir, values, files)
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Dir = r.scriptsDir
+	// An inherited VIRTUAL_ENV makes uv warn on every run, since each task targets its own project env.
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "VIRTUAL_ENV=") })
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return killGroup(cmd.Process.Pid) }
 	cmd.WaitDelay = waitDelay

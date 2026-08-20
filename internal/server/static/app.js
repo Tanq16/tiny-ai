@@ -11,13 +11,18 @@
     };
     const jobsList = document.getElementById('jobs-list');
     const sidebar = document.getElementById('sidebar');
+    const searchBox = document.getElementById('search-box');
+    const searchInput = document.getElementById('task-search');
 
     let catalog = { groups: [], tasks: [] };
     let jobs = [];
     let poller = null;
+    let query = '';
 
     function showView(name) {
         Object.entries(views).forEach(([key, node]) => node.classList.toggle('hidden', key !== name));
+        searchBox.classList.toggle('hidden', name !== 'launcher');
+        searchBox.classList.toggle('flex', name === 'launcher');
         window.scrollTo({ top: 0 });
     }
 
@@ -25,7 +30,7 @@
         const color = groupColor(task.group);
         return `
             <a href="#/task/${escapeHtml(task.id)}"
-               class="flex flex-col gap-3 rounded-xl border border-surface0 bg-mantle p-4 transition-colors hover:border-${color}/60 hover:bg-surface0/40">
+               class="flex flex-col gap-3 rounded-xl bg-mantle p-4 transition-colors hover:bg-surface0/50">
                 <div class="flex items-center gap-3">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-${color}/15 text-${color}">
                         <i data-lucide="${escapeHtml(task.icon)}" class="h-5 w-5"></i>
@@ -36,17 +41,20 @@
                     </div>
                 </div>
                 <p class="text-sm leading-relaxed text-subtext0">${escapeHtml(task.description)}</p>
-                <span class="mt-auto inline-flex items-center gap-1 text-xs font-medium text-${color}">
-                    Configure <i data-lucide="arrow-right" class="h-3 w-3"></i>
-                </span>
             </a>`;
+    }
+
+    function matchesQuery(task) {
+        if (!query) return true;
+        return [task.title, task.engine, task.description, task.group].join(' ').toLowerCase().includes(query);
     }
 
     function renderLauncher() {
         const groups = catalog.groups.length ? catalog.groups : [...new Set(catalog.tasks.map((t) => t.group))];
+        const visible = catalog.tasks.filter(matchesQuery);
         const sections = groups
             .map((group) => {
-                const tasks = catalog.tasks.filter((task) => task.group === group);
+                const tasks = visible.filter((task) => task.group === group);
                 if (!tasks.length) return '';
                 return `
                     <section class="space-y-3">
@@ -55,20 +63,25 @@
                             <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-subtext1">${escapeHtml(group)}</h2>
                             <span class="text-xs text-overlay0">${tasks.length}</span>
                         </div>
-                        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">${tasks.map(taskCard).join('')}</div>
+                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-[1800px]:grid-cols-4 min-[2400px]:grid-cols-5">${tasks
+                            .map(taskCard)
+                            .join('')}</div>
                     </section>`;
             })
             .join('');
 
+        const empty = query
+            ? `<p class="text-sm text-overlay1">Nothing matches ${escapeHtml(query)}.</p>`
+            : '<p class="text-sm text-overlay1">No tasks are registered.</p>';
         views.launcher.innerHTML = `
             <div class="space-y-7">
                 <div>
                     <h1 class="font-display text-2xl font-bold">Tasks</h1>
-                    <p class="mt-1 text-sm text-subtext0">Local models, run on this machine. Pick a task to configure and launch it.</p>
+                    <p class="mt-1 text-sm text-subtext0">Local models, run on this machine.</p>
                 </div>
-                ${sections || '<p class="text-sm text-overlay1">No tasks are registered.</p>'}
+                ${sections || empty}
             </div>`;
-        lucide.createIcons();
+        lucide.createIcons({ root: views.launcher });
     }
 
     function jobRow(job) {
@@ -154,14 +167,19 @@
 
     async function boot() {
         TinyAI.initMarked();
+        lucide.createIcons();
         document.getElementById('jobs-refresh').addEventListener('click', loadJobs);
         document.getElementById('sidebar-toggle').addEventListener('click', () => sidebar.classList.toggle('hidden'));
+        searchInput.addEventListener('input', () => {
+            query = searchInput.value.trim().toLowerCase();
+            renderLauncher();
+        });
         window.addEventListener('hashchange', route);
 
         try {
             catalog = await apiJSON('/api/tasks');
         } catch (error) {
-            views.launcher.innerHTML = `<div class="rounded-xl border border-red/40 bg-red/10 p-6 text-sm text-red">Could not load the task catalog: ${escapeHtml(
+            views.launcher.innerHTML = `<div class="rounded-xl bg-red/10 p-6 text-sm text-red">Could not load the task catalog: ${escapeHtml(
                 error.message,
             )}</div>`;
             toast('The server is not reachable.', 'error');
