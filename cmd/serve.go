@@ -57,6 +57,6 @@ func init() {
 	serveCmd.Flags().StringVarP(&serveFlags.host, "host", "H", "127.0.0.1", "Host to bind to")
 	serveCmd.Flags().IntVarP(&serveFlags.port, "port", "p", 7777, "Port to listen on")
 	serveCmd.Flags().StringVarP(&serveFlags.data, "data", "d", "./data", "Directory holding job inputs, outputs and history")
-	serveCmd.Flags().StringVarP(&serveFlags.scripts, "scripts", "s", ".", "Directory holding the task scripts")
+	serveCmd.Flags().StringVarP(&serveFlags.scripts, "scripts", "s", "./ai-scripts", "Directory holding the task projects")
 	serveCmd.Flags().IntVarP(&serveFlags.jobs, "jobs", "j", 1, "Jobs to run at the same time")
 }

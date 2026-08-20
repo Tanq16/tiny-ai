@@ -1,13 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = [
-#     "numpy>=2,<3",
-#     "pillow>=10.2",
-#     "spandrel>=0.4.2,<0.5",
-#     "torch>=2.7,<3",
-# ]
-# ///
 """Raises the resolution of an image with a Real-ESRGAN checkpoint run through spandrel."""
 
 from __future__ import annotations
@@ -75,7 +65,7 @@ def run_tiled(model, tensor, tile: int, rep: common.Reporter):
     return output
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     if not 1.0 <= args.scale <= 4.0:
         raise ValueError(f"scale must be between 1.0 and 4.0, got {args.scale}")
     source = common.require_file(args.input, "input")
@@ -133,5 +123,6 @@ parser.add_argument(
 parser.add_argument("--scale", type=float, default=2.0, help="final size factor, 1.0 to 4.0")
 parser.add_argument("--tile", type=int, default=400, help="tile size in pixels; 0 disables tiling")
 
-if __name__ == "__main__":
-    common.run("upscale", main, parser)
+
+def main() -> None:
+    common.run("upscale", run, parser)

@@ -7,7 +7,7 @@
 
 ---
 
-Tiny AI Suite runs eight local AI models on Apple Silicon: stem separation, denoising, transcription, speech synthesis, voice cloning, document conversion, OCR and image upscaling. Each one is a standalone Python script, and one Go binary serves a web app that runs them and streams their progress back.
+Tiny AI Suite runs eight local AI models on Apple Silicon: stem separation, denoising, transcription, speech synthesis, voice cloning, document conversion, OCR and image upscaling. Each one is a self-contained uv project under `ai-scripts/`, and one Go binary serves a web app that runs them and streams their progress back.
 
 It exists because a Mac with unified memory outruns a free Colab T4 and never disconnects mid-job. Nothing leaves the machine, and there is no account, no queue and no API key.
 
@@ -57,10 +57,10 @@ make build
 
 `make build` downloads the pinned frontend assets and embeds them in the binary. Open `http://127.0.0.1:7777`.
 
-Each script installs its own dependencies on first use, which takes a minute or two per task and downloads model weights on top. To get that over with up front:
+Each task installs its own dependencies on first use, which takes a minute or two and downloads model weights on top. To get that over with up front:
 
 ```bash
-make py-sync   # every script environment, roughly 8 GB on disk
+make py-sync   # every task environment, roughly 8 GB on disk
 make voices    # the three built-in voice cloning reference clips
 ```
 
@@ -68,16 +68,26 @@ make voices    # the three built-in voice cloning reference clips
 
 ## Usage
 
-Every script takes `--outdir`, `--json`, `--quiet` and `--device` on top of its own flags, and prints artifact paths on stdout. `--json` switches it to the NDJSON event stream the server consumes.
+Every task takes `--outdir`, `--json`, `--quiet` and `--device` on top of its own flags, and prints artifact paths on stdout. `--json` switches it to the NDJSON event stream the server consumes.
 
 ```bash
-./transcribe.py --input talk.opus --model mlx-community/whisper-large-v3-turbo --outdir out
-./stems.py --input song.mp3 --two-stems --format mp3 --outdir out
-./tts.py --text "Ready when you are." --voice bf_emma --outdir out
-./doc2md.py --input paper.pdf --pages 1-10 --outdir out
+uv run --project ai-scripts/transcribe transcribe --input talk.opus --outdir out
+uv run --project ai-scripts/stems stems --input song.mp3 --two-stems --format mp3 --outdir out
+uv run --project ai-scripts/tts tts --text "Ready when you are." --voice bf_emma --outdir out
+cd ai-scripts/doc2md && uv run doc2md --input paper.pdf --pages 1-10 --outdir out
 ```
 
-Each is a uv script with its own pinned lockfile, so `./stems.py` resolves its environment on its own and no two tasks share a dependency tree.
+### Layout
+
+```
+ai-scripts/
+├── common/       tinyai-common: the event protocol every task speaks
+├── stems/        pyproject.toml, uv.lock, src/stems/
+├── denoise/      ...
+└── upscale/
+```
+
+Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: Demucs and Marker resolve to incompatible torch and numpy lines, so a single environment for all eight does not exist. Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
 
 ### Server flags
 
@@ -86,7 +96,7 @@ Each is a uv script with its own pinned lockfile, so `./stems.py` resolves its e
 | `--host` | `127.0.0.1` | Bind address |
 | `--port` | `7777` | Port |
 | `--data` | `./data` | Where uploads, outputs and job history live |
-| `--scripts` | `.` | Directory holding the task scripts |
+| `--scripts` | `./ai-scripts` | Directory holding the task projects |
 | `--jobs` | `1` | Concurrent jobs |
 
 ### API
@@ -106,4 +116,4 @@ curl -O localhost:7777/api/jobs/<id>/artifacts/speech.wav
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.
 - **Job history survives a restart.** State lives under `data/jobs/<id>/`; a job that was running when the server died is marked failed on reload, because its process is gone.
 - **No Docker.** Metal is unreachable from a Linux container on macOS, which would drop every task to CPU.
-- **Adding a task** is one entry in `internal/catalog/tasks.go` and one script that speaks the event protocol documented at the top of `tinyai_common.py`. The form, the API and the argv are generated from the catalog entry.
+- **Adding a task** is one entry in `internal/catalog/tasks.go` and one uv project whose entry point is named after it. The form, the API and the argv are generated from the catalog entry, and the event protocol is documented at the top of `ai-scripts/common/src/tinyai_common/__init__.py`.

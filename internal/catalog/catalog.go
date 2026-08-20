@@ -52,7 +52,7 @@ type Task struct {
 	Description string  `json:"description"`
 	Engine      string  `json:"engine"`
 	Icon        string  `json:"icon"`
-	Script      string  `json:"script"`
+	Project     string  `json:"project"`
 	Params      []Param `json:"params"`
 }
 

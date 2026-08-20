@@ -1,0 +1,29 @@
+[project]
+name = "tts"
+version = "0.1.0"
+description = "Synthesizes speech from text with Kokoro 82M on MLX."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "mlx-audio>=0.5.0",
+    "misaki>=0.9.4",
+    "num2words>=0.5.14",
+    "spacy>=3.8.0",
+    "phonemizer-fork>=3.3.2",
+    "espeakng-loader>=0.2.4",
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
+
+[project.scripts]
+tts = "tts:main"
+make-voices = "tts.voices:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

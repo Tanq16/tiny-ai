@@ -1,0 +1,22 @@
+[project]
+name = "doc2md"
+version = "0.1.0"
+description = "Converts documents to Markdown, HTML or JSON with Marker."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "marker-pdf[full]>=1.9.3,<2",
+]
+
+[project.scripts]
+doc2md = "doc2md:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

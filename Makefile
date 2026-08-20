@@ -22,7 +22,8 @@ JS_DIR     := $(STATIC_DIR)/js
 CSS_DIR    := $(STATIC_DIR)/css
 FONTS_DIR  := $(STATIC_DIR)/fonts
 
-SCRIPTS := stems.py denoise.py transcribe.py tts.py voiceclone.py doc2md.py ocr.py upscale.py make_voices.py
+SCRIPTS_DIR := ai-scripts
+PROJECTS    := stems denoise transcribe tts voiceclone doc2md ocr upscale
 
 # Google Fonts serves woff2 only to a browser-shaped User-Agent; an unrecognized
 # one gets ttf, which is roughly twice the bytes.
@@ -100,31 +101,33 @@ verify-assets: ## Fail early if the embedded tree is missing an asset
 # =============================================================================
 # Python scripts
 # =============================================================================
-py-lock: ## Re-resolve every script's PEP 723 lockfile
-	@for s in $(SCRIPTS); do \
-	  echo "$(CYAN)locking $$s$(NC)"; uv lock --script "$$s"; \
+py-lock: ## Re-resolve every task project's lockfile
+	@for p in $(PROJECTS); do \
+	  echo "$(CYAN)locking $$p$(NC)"; uv lock --project "$(SCRIPTS_DIR)/$$p"; \
 	done
 
-py-sync: ## Pre-install every script environment so a first run does not stall
-	@for s in $(SCRIPTS); do \
-	  echo "$(CYAN)syncing $$s$(NC)"; uv sync --script "$$s"; \
+py-sync: ## Pre-install every task environment so a first run does not stall
+	@for p in $(PROJECTS); do \
+	  echo "$(CYAN)syncing $$p$(NC)"; uv sync --project "$(SCRIPTS_DIR)/$$p"; \
 	done
-	@echo "$(GREEN)Script environments ready$(NC)"
+	@echo "$(GREEN)Task environments ready$(NC)"
 
 voices: ## Render the built-in voice cloning reference clips
-	@uv run --script make_voices.py
-	@echo "$(GREEN)Reference clips written to assets/voices$(NC)"
+	@uv run --project $(SCRIPTS_DIR)/tts make-voices --outdir $(SCRIPTS_DIR)/voiceclone/voices
+	@echo "$(GREEN)Reference clips written to $(SCRIPTS_DIR)/voiceclone/voices$(NC)"
 
-lint: ## Lint the Python scripts
-	@uv run ruff check .
-	@uv run ruff format --check .
+lint: ## Lint the Python sources
+	@uv run ruff check $(SCRIPTS_DIR)
+	@uv run ruff format --check $(SCRIPTS_DIR)
 
 # =============================================================================
 # Build
 # =============================================================================
-clean: ## Remove built binaries and downloaded assets
+# The task virtualenvs are left alone: rebuilding them costs several GB of downloads.
+clean: ## Remove built binaries, downloaded assets and Python caches
 	@rm -f $(APP_NAME) $(APP_NAME)-*
 	@rm -rf $(JS_DIR) $(CSS_DIR) $(FONTS_DIR)
+	@find $(SCRIPTS_DIR) -name __pycache__ -type d -not -path '*/.venv/*' -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(GREEN)Cleaned$(NC)"
 
 build: assets verify-assets ## Build for the current platform

@@ -1,16 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = [
-#     "mlx-audio>=0.5.0",
-#     "misaki>=0.9.4",
-#     "num2words>=0.5.14",
-#     "spacy>=3.8.0",
-#     "phonemizer-fork>=3.3.2",
-#     "espeakng-loader>=0.2.4",
-#     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
-# ]
-# ///
 """Reads text aloud in a preset Kokoro 82M voice on MLX."""
 
 from __future__ import annotations
@@ -22,7 +9,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-
 import tinyai_common as common
 
 REPO = "prince-canuma/Kokoro-82M"
@@ -74,7 +60,7 @@ def write_wav(path: Path, audio: np.ndarray, sample_rate: int) -> Path:
     return path
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     chunks = chunk_text(args.text)
     if not chunks:
         raise ValueError("--text has no speakable content")
@@ -122,5 +108,5 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-if __name__ == "__main__":
-    common.run("tts", main, build_parser())
+def main() -> None:
+    common.run("tts", run, build_parser())

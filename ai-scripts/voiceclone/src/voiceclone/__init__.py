@@ -1,11 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = [
-#     "f5-tts-mlx>=0.2.6",
-#     "mlx-whisper>=0.4.3",
-# ]
-# ///
 """Speaks new text in the voice of a short reference clip with F5-TTS on MLX."""
 
 from __future__ import annotations
@@ -18,12 +10,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
-
 import tinyai_common as common
 
 MODEL = "lucasnewman/f5-tts-mlx"
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
-PRESET_DIR = Path(__file__).resolve().parent / "assets" / "voices"
+PRESET_DIR = Path(__file__).resolve().parents[2] / "voices"
 
 _SENTENCE = re.compile(r"[^.!?]+[.!?]*", re.S)
 
@@ -40,7 +31,7 @@ def resolve_reference(args: argparse.Namespace) -> tuple[Path, str]:
     clip = PRESET_DIR / f"{args.preset}.wav"
     if not manifest.exists() or not clip.exists():
         raise FileNotFoundError(
-            f"reference preset {args.preset!r} is missing from {PRESET_DIR}; run make_voices.py to render it"
+            f"reference preset {args.preset!r} is missing from {PRESET_DIR}; run 'make voices' to render it"
         )
     return clip, json.loads(manifest.read_text())["text"].strip()
 
@@ -53,7 +44,7 @@ def transcribe(clip: Path) -> str:
         return mlx_whisper.transcribe(str(clip), path_or_hf_repo=WHISPER_MODEL)["text"].strip()
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     clip, ref_text = resolve_reference(args)
     spoken = sentences(args.text)
     if not spoken:
@@ -136,5 +127,5 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-if __name__ == "__main__":
-    common.run("voiceclone", main, build_parser())
+def main() -> None:
+    common.run("voiceclone", run, build_parser())

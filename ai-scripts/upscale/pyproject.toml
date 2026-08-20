@@ -1,0 +1,25 @@
+[project]
+name = "upscale"
+version = "0.1.0"
+description = "Upscales an image with Real-ESRGAN weights through spandrel."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "numpy>=2,<3",
+    "pillow>=10.2",
+    "spandrel>=0.4.2,<0.5",
+    "torch>=2.7,<3",
+]
+
+[project.scripts]
+upscale = "upscale:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

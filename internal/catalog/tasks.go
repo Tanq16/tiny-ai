@@ -14,7 +14,7 @@ var tasks = []Task{
 		Description: "Split a track into vocals, drums, bass and accompaniment, or straight into a karaoke pair.",
 		Engine:      "Demucs (htdemucs)",
 		Icon:        "audio-lines",
-		Script:      "stems.py",
+		Project:     "stems",
 		Params: []Param{
 			{Name: "input", Label: "Audio file", Type: ParamFile, Required: true, Accept: audioExts},
 			{Name: "model", Label: "Model", Type: ParamSelect, Default: "htdemucs", Options: []Option{
@@ -39,7 +39,7 @@ var tasks = []Task{
 		Description: "Strip room noise, hum and static out of a voice recording.",
 		Engine:      "DeepFilterNet3",
 		Icon:        "waves",
-		Script:      "denoise.py",
+		Project:     "denoise",
 		Params: []Param{
 			{Name: "input", Label: "Audio file", Type: ParamFile, Required: true, Accept: audioExts},
 			{Name: "attenuation", Label: "Noise reduction strength", Type: ParamNumber, Default: "100",
@@ -54,7 +54,7 @@ var tasks = []Task{
 		Description: "Turn speech into text, timestamps and subtitles.",
 		Engine:      "MLX Whisper",
 		Icon:        "captions",
-		Script:      "transcribe.py",
+		Project:     "transcribe",
 		Params: []Param{
 			{Name: "input", Label: "Audio or video file", Type: ParamFile, Required: true, Accept: audioExts + ",.mp4,.mov,.mkv,.webm"},
 			{Name: "model", Label: "Model", Type: ParamSelect, Default: "mlx-community/whisper-large-v3-turbo", Options: []Option{
@@ -78,7 +78,7 @@ var tasks = []Task{
 		Description: "Read text aloud in a natural preset voice, near instantly.",
 		Engine:      "Kokoro 82M",
 		Icon:        "mic",
-		Script:      "tts.py",
+		Project:     "tts",
 		Params: []Param{
 			{Name: "text", Label: "Text", Type: ParamTextarea, Required: true},
 			{Name: "voice", Label: "Voice", Type: ParamSelect, Default: "af_heart", Options: []Option{
@@ -106,7 +106,7 @@ var tasks = []Task{
 		Description: "Speak new text in a voice taken from a short reference clip.",
 		Engine:      "F5-TTS (MLX)",
 		Icon:        "user-round-cog",
-		Script:      "voiceclone.py",
+		Project:     "voiceclone",
 		Params: []Param{
 			{Name: "text", Label: "Text to speak", Type: ParamTextarea, Required: true},
 			{Name: "preset", Label: "Reference voice", Type: ParamSelect, Default: "warm-narrator", Options: []Option{
@@ -130,7 +130,7 @@ var tasks = []Task{
 		Description: "Convert a PDF or office document into clean Markdown, keeping tables and equations.",
 		Engine:      "Marker",
 		Icon:        "file-text",
-		Script:      "doc2md.py",
+		Project:     "doc2md",
 		Params: []Param{
 			{Name: "input", Label: "Document", Type: ParamFile, Required: true, Accept: docExts},
 			{Name: "pages", Label: "Page range", Type: ParamText, Help: "For example 1-10. Leave empty for the whole document."},
@@ -150,7 +150,7 @@ var tasks = []Task{
 		Description: "Read text, layout and tables out of a screenshot, receipt or photo.",
 		Engine:      "Surya",
 		Icon:        "scan-text",
-		Script:      "ocr.py",
+		Project:     "ocr",
 		Params: []Param{
 			{Name: "input", Label: "Image", Type: ParamFile, Required: true, Accept: imageExts},
 			{Name: "tables", Label: "Recognize tables", Type: ParamBool, Default: "true"},
@@ -164,7 +164,7 @@ var tasks = []Task{
 		Description: "Raise the resolution of an image without the softness of a plain resize.",
 		Engine:      "Real-ESRGAN",
 		Icon:        "image-up",
-		Script:      "upscale.py",
+		Project:     "upscale",
 		Params: []Param{
 			{Name: "input", Label: "Image", Type: ParamFile, Required: true, Accept: imageExts},
 			{Name: "model", Label: "Model", Type: ParamSelect, Default: "anime6b", Options: []Option{

@@ -1,12 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = [
-#   "deepfilternet[soundfile]>=0.5.6",
-#   "torch>=2.6,<2.9",
-#   "torchaudio>=2.6,<2.9",
-# ]
-# ///
 """Strips room noise, hum and static out of a recording with DeepFilterNet3."""
 
 from __future__ import annotations
@@ -41,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     source = common.require_file(args.input, "input")
     outdir = common.ensure_outdir(args.outdir)
     device = common.resolve_device(args.device)
@@ -79,5 +70,5 @@ def main(args: argparse.Namespace, rep: common.Reporter) -> None:
     rep.done()
 
 
-if __name__ == "__main__":
-    common.run("denoise", main, build_parser())
+def main() -> None:
+    common.run("denoise", run, build_parser())

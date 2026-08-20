@@ -1,12 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = ["demucs>=4.1.0", "numpy>=2", "torch>=2.6"]
-#
-# # demucs caps torch and numpy for darwin x86_64, which a script lock cannot fork away.
-# [tool.uv]
-# override-dependencies = ["numpy>=2", "torch>=2.6"]
-# ///
 """Splits a track into instrument stems with Demucs."""
 
 from __future__ import annotations
@@ -68,7 +59,7 @@ def write_stems(
     return written
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     source = common.require_file(args.input, "input")
     outdir = common.ensure_outdir(args.outdir)
     device = common.resolve_device(args.device)
@@ -99,5 +90,5 @@ def main(args: argparse.Namespace, rep: common.Reporter) -> None:
     rep.done()
 
 
-if __name__ == "__main__":
-    common.run("stems", main, build_parser())
+def main() -> None:
+    common.run("stems", run, build_parser())

@@ -26,8 +26,8 @@ const (
 
 var scriptEvents = []string{EventStart, EventLog, EventProgress, EventArtifact, EventResult, EventDone, EventError}
 
-func buildArgs(task catalog.Task, scriptPath, outDir string, values, files map[string]string) []string {
-	args := []string{"run", "--script", scriptPath, "--json", "--outdir", outDir}
+func buildArgs(task catalog.Task, projectDir, outDir string, values, files map[string]string) []string {
+	args := []string{"run", "--project", projectDir, task.Project, "--json", "--outdir", outDir}
 	for _, p := range task.Params {
 		flag := "--" + p.Name
 		switch p.Type {
@@ -154,7 +154,7 @@ func (r *Runner) execute(rec *record, task catalog.Task, values, files map[strin
 	ctx, cancel := r.jobContext(rec)
 	defer cancel()
 
-	args := buildArgs(task, filepath.Join(r.scriptsDir, task.Script), rec.outDir, values, files)
+	args := buildArgs(task, filepath.Join(r.scriptsDir, task.Project), rec.outDir, values, files)
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Dir = r.scriptsDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -180,7 +180,7 @@ func (r *Runner) execute(rec *record, task catalog.Task, values, files map[strin
 	defer logFile.Close()
 
 	if err := cmd.Start(); err != nil {
-		rec.fail(fmt.Sprintf("could not start %s: %v", task.Script, err))
+		rec.fail(fmt.Sprintf("could not start %s: %v", task.Project, err))
 		return
 	}
 	rec.transition(StateRunning)

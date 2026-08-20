@@ -1,10 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = [
-#     "marker-pdf[full]>=1.9.3,<2",
-# ]
-# ///
 """Converts a PDF or office document to Markdown, HTML or JSON with Marker."""
 
 from __future__ import annotations
@@ -29,7 +22,7 @@ def page_range(spec: str) -> list[int] | None:
     return [page - 1 for page in pages]
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     source = common.require_file(args.input, "input")
     outdir = common.ensure_outdir(args.outdir)
     device = common.resolve_device(args.device)
@@ -111,5 +104,6 @@ parser.add_argument(
     "--force-ocr", action="store_true", help="re-read every page with OCR instead of its text layer"
 )
 
-if __name__ == "__main__":
-    common.run("doc2md", main, parser)
+
+def main() -> None:
+    common.run("doc2md", run, parser)

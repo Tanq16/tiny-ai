@@ -1,8 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = ["mlx-whisper>=0.4.3"]
-# ///
 """Turns speech into text, timestamps and subtitles with MLX Whisper."""
 
 from __future__ import annotations
@@ -85,7 +80,7 @@ def write_timestamped(result: dict, target: Path) -> None:
     target.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     source = common.require_file(args.input, "input")
     outdir = common.ensure_outdir(args.outdir)
     device = common.resolve_device(args.device)
@@ -124,5 +119,5 @@ def main(args: argparse.Namespace, rep: common.Reporter) -> None:
     rep.done()
 
 
-if __name__ == "__main__":
-    common.run("transcribe", main, build_parser())
+def main() -> None:
+    common.run("transcribe", run, build_parser())

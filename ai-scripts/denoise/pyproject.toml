@@ -1,0 +1,24 @@
+[project]
+name = "denoise"
+version = "0.1.0"
+description = "Strips noise and reverb out of a recording with DeepFilterNet3."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "deepfilternet[soundfile]>=0.5.6",
+    "torch>=2.6,<2.9",
+    "torchaudio>=2.6,<2.9",
+]
+
+[project.scripts]
+denoise = "denoise:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

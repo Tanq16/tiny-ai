@@ -1,13 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12,<3.14"
-# dependencies = [
-#     "pillow>=10.2,<11",
-#     "requests>=2.32",  # surya 0.17 imports requests without declaring it
-#     "surya-ocr>=0.17.1,<0.18",
-#     "transformers>=4.56.1,<5",  # surya 0.17 predates the transformers 5 config rework
-# ]
-# ///
 """Reads text, layout and tables out of a single image with Surya."""
 
 from __future__ import annotations
@@ -131,7 +121,7 @@ def write_annotation(image, result, tables: list[dict], outdir: Path, rep: commo
     rep.artifact(target, kind="image", label="Annotated preview")
 
 
-def main(args: argparse.Namespace, rep: common.Reporter) -> None:
+def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     source = common.require_file(args.input, "input")
     outdir = common.ensure_outdir(args.outdir)
     device = common.resolve_device(args.device)
@@ -207,5 +197,6 @@ parser.add_argument(
     help="write a preview with the detected boxes drawn on it",
 )
 
-if __name__ == "__main__":
-    common.run("ocr", main, parser)
+
+def main() -> None:
+    common.run("ocr", run, parser)

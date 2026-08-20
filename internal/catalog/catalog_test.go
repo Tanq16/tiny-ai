@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,8 +17,8 @@ func TestTaskDefinitionsAreConsistent(t *testing.T) {
 			if slices.Contains(ids, task.ID) {
 				t.Errorf("duplicate task id %q", task.ID)
 			}
-			if !strings.HasSuffix(task.Script, ".py") {
-				t.Errorf("script %q is not a python file", task.Script)
+			if task.Project == "" || strings.ContainsAny(task.Project, "./ ") {
+				t.Errorf("project %q is not a bare directory name", task.Project)
 			}
 			if task.Group == "" || task.Title == "" || task.Icon == "" {
 				t.Errorf("task %q is missing a group, title or icon", task.ID)
@@ -93,13 +94,20 @@ func checkParam(t *testing.T, task Task, p Param) {
 	}
 }
 
-// The catalog names the script the runner executes, so a typo here is a task that
-// only fails once someone submits it.
-func TestEveryTaskScriptExists(t *testing.T) {
-	root := filepath.Join("..", "..")
+// The runner invokes a task as `uv run --project ai-scripts/<project> <project>`, so both the
+// project and an entry point named after it have to exist before anyone submits the task.
+func TestEveryTaskProjectIsRunnable(t *testing.T) {
+	root := filepath.Join("..", "..", "ai-scripts")
 	for _, task := range All() {
-		if _, err := os.Stat(filepath.Join(root, task.Script)); err != nil {
-			t.Errorf("task %q names %s, which does not exist: %v", task.ID, task.Script, err)
+		manifest := filepath.Join(root, task.Project, "pyproject.toml")
+		data, err := os.ReadFile(manifest)
+		if err != nil {
+			t.Errorf("task %q names project %s, which does not exist: %v", task.ID, task.Project, err)
+			continue
+		}
+		entry := fmt.Sprintf("%s = %q", task.Project, task.Project+":main")
+		if !strings.Contains(string(data), entry) {
+			t.Errorf("task %q needs %s to declare `%s`", task.ID, manifest, entry)
 		}
 	}
 }

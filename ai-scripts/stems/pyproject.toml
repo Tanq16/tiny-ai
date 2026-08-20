@@ -1,0 +1,24 @@
+[project]
+name = "stems"
+version = "0.1.0"
+description = "Splits a track into instrument stems with Demucs."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "demucs>=4.1.0",
+    "numpy>=2",
+    "torch>=2.6",
+]
+
+[project.scripts]
+stems = "stems:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

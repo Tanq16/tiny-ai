@@ -1,0 +1,25 @@
+[project]
+name = "ocr"
+version = "0.1.0"
+description = "Reads text, layout and tables out of an image with Surya."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "pillow>=10.2,<11",
+    "requests>=2.32",
+    "surya-ocr>=0.17.1,<0.18",
+    "transformers>=4.56.1,<5",
+]
+
+[project.scripts]
+ocr = "ocr:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

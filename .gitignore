@@ -1,16 +1,32 @@
+# Go
+/tiny-ai-suite
+/tiny-ai-suite-*
+/bin/
+*.test
+*.out
+
+# Python and uv
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .ruff_cache/
+.pytest_cache/
 
-bin/
-tiny-ai-suite
+# Runtime state: job inputs, outputs and history
+/data/
 
-data/
-assets/voices/*.wav
-assets/voices/*.json
+# Generated voice cloning reference clips, rendered by `make voices`
+/ai-scripts/voiceclone/voices/
 
-internal/server/static/css/
-internal/server/static/js/
-internal/server/static/fonts/
-internal/server/static/fontawesome/
+# Frontend assets, downloaded by `make assets`
+/internal/server/static/css/
+/internal/server/static/js/
+/internal/server/static/fonts/
+/internal/server/static/fontawesome/
+
+# macOS and editors
+.DS_Store
+*.swp
+.idea/
+.vscode/

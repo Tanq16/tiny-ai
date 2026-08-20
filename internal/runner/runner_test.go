@@ -41,7 +41,7 @@ func TestBuildArgs(t *testing.T) {
 			},
 			files: map[string]string{"input": "/jobs/j1/input/song.mp3"},
 			want: []string{
-				"run", "--script", "/scripts/stems.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/jobs/j1/input/song.mp3", "--model", "htdemucs", "--two-stems",
 				"--format", "mp3", "--shifts", "2",
 			},
@@ -52,7 +52,7 @@ func TestBuildArgs(t *testing.T) {
 			values: map[string]string{"two-stems": "false", "model": "mdx_extra"},
 			files:  map[string]string{"input": "/in.wav"},
 			want: []string{
-				"run", "--script", "/scripts/stems.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/in.wav", "--model", "mdx_extra",
 			},
 		},
@@ -62,7 +62,7 @@ func TestBuildArgs(t *testing.T) {
 			values: map[string]string{"two-stems": "on"},
 			files:  map[string]string{"input": "/in.wav"},
 			want: []string{
-				"run", "--script", "/scripts/stems.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/in.wav", "--two-stems",
 			},
 		},
@@ -72,7 +72,7 @@ func TestBuildArgs(t *testing.T) {
 			values: map[string]string{"tables": "false", "annotate": "true"},
 			files:  map[string]string{"input": "/receipt.png"},
 			want: []string{
-				"run", "--script", "/scripts/ocr.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/ocr", "ocr", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/receipt.png", "--no-tables", "--annotate",
 			},
 		},
@@ -81,7 +81,7 @@ func TestBuildArgs(t *testing.T) {
 			task:  ocr,
 			files: map[string]string{"input": "/receipt.png"},
 			want: []string{
-				"run", "--script", "/scripts/ocr.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/ocr", "ocr", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/receipt.png", "--no-tables", "--no-annotate",
 			},
 		},
@@ -91,7 +91,7 @@ func TestBuildArgs(t *testing.T) {
 			values: map[string]string{"language": "", "task": "translate"},
 			files:  map[string]string{"input": "/clip.m4a"},
 			want: []string{
-				"run", "--script", "/scripts/transcribe.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/transcribe", "transcribe", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/clip.m4a", "--task", "translate",
 			},
 		},
@@ -101,14 +101,14 @@ func TestBuildArgs(t *testing.T) {
 			values: map[string]string{"model": "htdemucs"},
 			files:  nil,
 			want: []string{
-				"run", "--script", "/scripts/stems.py", "--json", "--outdir", "/jobs/j1/output",
+				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
 				"--model", "htdemucs",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildArgs(tt.task, "/scripts/"+tt.task.Script, "/jobs/j1/output", tt.values, tt.files)
+			got := buildArgs(tt.task, "/scripts/"+tt.task.Project, "/jobs/j1/output", tt.values, tt.files)
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("buildArgs() = %v, want %v", got, tt.want)
 			}
