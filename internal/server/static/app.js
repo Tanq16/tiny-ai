@@ -73,14 +73,7 @@
         const empty = query
             ? `<p class="text-sm text-overlay1">Nothing matches ${escapeHtml(query)}.</p>`
             : '<p class="text-sm text-overlay1">No tasks are registered.</p>';
-        views.launcher.innerHTML = `
-            <div class="space-y-7">
-                <div>
-                    <h1 class="font-display text-2xl font-bold">Tasks</h1>
-                    <p class="mt-1 text-sm text-subtext0">Local models, run on this machine.</p>
-                </div>
-                ${sections || empty}
-            </div>`;
+        views.launcher.innerHTML = `<div class="space-y-7">${sections || empty}</div>`;
         lucide.createIcons({ root: views.launcher });
     }
 
