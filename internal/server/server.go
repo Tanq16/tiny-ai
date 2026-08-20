@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tanq16/tiny-ai-suite/internal/runner"
+	"github.com/Tanq16/tiny-ai/internal/runner"
 )
 
 //go:embed all:static

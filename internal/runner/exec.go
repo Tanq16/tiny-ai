@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tanq16/tiny-ai-suite/internal/catalog"
+	"github.com/Tanq16/tiny-ai/internal/catalog"
 )
 
 const (

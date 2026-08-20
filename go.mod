@@ -1,4 +1,4 @@
-module github.com/tanq16/tiny-ai-suite
+module github.com/Tanq16/tiny-ai
 
 go 1.26.6
 

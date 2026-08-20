@@ -12,8 +12,8 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/tanq16/tiny-ai-suite/internal/catalog"
-	"github.com/tanq16/tiny-ai-suite/internal/runner"
+	"github.com/Tanq16/tiny-ai/internal/catalog"
+	"github.com/Tanq16/tiny-ai/internal/runner"
 )
 
 const maxFormMemory = 32 << 20

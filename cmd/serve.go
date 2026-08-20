@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Tanq16/tiny-ai/internal/runner"
+	"github.com/Tanq16/tiny-ai/internal/server"
 	"github.com/spf13/cobra"
-	"github.com/tanq16/tiny-ai-suite/internal/runner"
-	"github.com/tanq16/tiny-ai-suite/internal/server"
 )
 
 var serveFlags struct {

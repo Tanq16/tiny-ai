@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tanq16/tiny-ai-suite/internal/runner"
+	"github.com/Tanq16/tiny-ai/internal/runner"
 )
 
 func TestWriteSSE(t *testing.T) {

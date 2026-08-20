@@ -1,6 +1,6 @@
 package main
 
-import "github.com/tanq16/tiny-ai-suite/cmd"
+import "github.com/Tanq16/tiny-ai/cmd"
 
 func main() {
 	cmd.Execute()

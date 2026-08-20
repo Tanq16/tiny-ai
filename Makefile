@@ -4,7 +4,7 @@
 # Variables
 # =============================================================================
 APP_NAME := tiny-ai-suite
-MODULE   := github.com/tanq16/tiny-ai-suite
+MODULE   := github.com/Tanq16/tiny-ai
 
 VERSION ?= dev-build
 GOOS    ?= $(shell go env GOOS)

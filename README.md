@@ -50,7 +50,7 @@ Every task is reachable three ways: the web UI, the HTTP API, and the script on 
 Apple Silicon only. Needs Go 1.26+, [uv](https://docs.astral.sh/uv/), and ffmpeg.
 
 ```bash
-git clone https://github.com/tanq16/tiny-ai-suite && cd tiny-ai-suite
+git clone https://github.com/Tanq16/tiny-ai && cd tiny-ai
 make build
 ./tiny-ai-suite serve
 ```
