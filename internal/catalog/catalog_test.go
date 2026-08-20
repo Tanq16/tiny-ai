@@ -45,6 +45,10 @@ func checkParam(t *testing.T, task Task, p Param) {
 	if strings.ContainsAny(p.Name, " _") {
 		t.Errorf("param %q must be a flag-shaped name", p.Name)
 	}
+	// A widget replaces the control the type would have rendered, and both of them submit a file.
+	if p.Widget != "" && p.Type != ParamFile {
+		t.Errorf("param %q carries widget %q on a %q param, which submits no file", p.Name, p.Widget, p.Type)
+	}
 
 	switch p.Type {
 	case ParamSelect:

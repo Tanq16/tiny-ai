@@ -21,14 +21,15 @@ var staticFiles embed.FS
 const shutdownGrace = 5 * time.Second
 
 type Server struct {
-	host   string
-	port   int
-	mux    *http.ServeMux
-	runner *runner.Runner
+	host    string
+	port    int
+	dataDir string
+	mux     *http.ServeMux
+	runner  *runner.Runner
 }
 
-func New(host string, port int, r *runner.Runner) *Server {
-	return &Server{host: host, port: port, mux: http.NewServeMux(), runner: r}
+func New(host string, port int, dataDir string, r *runner.Runner) *Server {
+	return &Server{host: host, port: port, dataDir: dataDir, mux: http.NewServeMux(), runner: r}
 }
 
 func (s *Server) Setup() error {
@@ -40,6 +41,8 @@ func (s *Server) Setup() error {
 
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/tasks", s.handleTasks)
+	s.mux.HandleFunc("GET /api/lexicon", s.handleGetLexicon)
+	s.mux.HandleFunc("PUT /api/lexicon", s.handlePutLexicon)
 	s.mux.HandleFunc("GET /api/jobs", s.handleListJobs)
 	s.mux.HandleFunc("POST /api/jobs", s.handleCreateJob)
 	s.mux.HandleFunc("GET /api/jobs/{id}", s.handleGetJob)

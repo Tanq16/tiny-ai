@@ -13,10 +13,14 @@ import (
 	"strconv"
 
 	"github.com/Tanq16/tiny-ai/internal/catalog"
+	"github.com/Tanq16/tiny-ai/internal/lexicon"
 	"github.com/Tanq16/tiny-ai/internal/runner"
 )
 
-const maxFormMemory = 32 << 20
+const (
+	maxFormMemory   = 32 << 20
+	maxLexiconBytes = 1 << 20
+)
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -224,4 +228,29 @@ func writeSSE(w io.Writer, e runner.Event) error {
 	}
 	_, err = fmt.Fprintf(w, "id: %d\ndata: %s\n\n", e.Seq, payload)
 	return err
+}
+
+func (s *Server) handleGetLexicon(w http.ResponseWriter, r *http.Request) {
+	lex, err := lexicon.Load(lexicon.Path(s.dataDir))
+	if err != nil {
+		log.Printf("ERROR Failed to read the lexicon: %v", err)
+		writeError(w, http.StatusInternalServerError, "could not read the lexicon")
+		return
+	}
+	writeJSON(w, http.StatusOK, lex)
+}
+
+func (s *Server) handlePutLexicon(w http.ResponseWriter, r *http.Request) {
+	var lex lexicon.Lexicon
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxLexiconBytes)).Decode(&lex); err != nil {
+		writeError(w, http.StatusBadRequest, "expected a lexicon object")
+		return
+	}
+	lex = lex.Normalize()
+	if err := lexicon.Save(lexicon.Path(s.dataDir), lex); err != nil {
+		log.Printf("ERROR Failed to write the lexicon: %v", err)
+		writeError(w, http.StatusInternalServerError, "could not save the lexicon")
+		return
+	}
+	writeJSON(w, http.StatusOK, lex)
 }

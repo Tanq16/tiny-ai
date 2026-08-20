@@ -7,7 +7,7 @@
 
 ---
 
-Tiny AI Suite runs eight local AI models on Apple Silicon: stem separation, denoising, transcription, speech synthesis, voice cloning, document conversion, OCR and image upscaling. Each one is a self-contained uv project under `ai-scripts/`, and one Go binary serves a web app that runs them and streams their progress back.
+Tiny AI Suite runs nine local AI models on Apple Silicon: stem separation, denoising, transcription, dictation, speech synthesis, voice cloning, document conversion, OCR and image upscaling. Each one is a self-contained uv project under `ai-scripts/`, and one Go binary serves a web app that runs them and streams their progress back.
 
 It exists because a Mac with unified memory outruns a free Colab T4 and never disconnects mid-job. Nothing leaves the machine, and there is no account, no queue and no API key.
 
@@ -18,6 +18,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 | Stem Separator | Demucs `htdemucs` | Metal (torch MPS) | vocals, drums, bass, other, or a karaoke pair, plus a zip |
 | Audio Enhancer | DeepFilterNet3 | Metal or CPU | denoised wav, original kept for A/B |
 | Transcriber | MLX Whisper | Metal (MLX) | timestamped text, SRT, JSON segments |
+| Dictation | Qwen3-ASR + Gemma 4 12B | Metal (MLX) | clean written text from a browser recording, spelled your way |
 | Speech Synthesis | Kokoro 82M | Metal (MLX) | wav or mp3 from 9 preset voices |
 | Voice Cloning | F5-TTS | Metal (MLX) | wav in a voice taken from a 5 to 15 second clip |
 | Document to Markdown | Marker | Metal (torch MPS) | Markdown, HTML or JSON, with tables, LaTeX and extracted images |
@@ -72,6 +73,7 @@ Every task takes `--outdir`, `--json`, `--quiet` and `--device` on top of its ow
 
 ```bash
 uv run --project ai-scripts/transcribe transcribe --input talk.opus --outdir out
+uv run --project ai-scripts/dictate dictate --input note.m4a --lexicon data/lexicon.json --outdir out
 uv run --project ai-scripts/stems stems --input song.mp3 --two-stems --format mp3 --outdir out
 uv run --project ai-scripts/tts tts --text "Ready when you are." --voice bf_emma --outdir out
 cd ai-scripts/doc2md && uv run doc2md --input paper.pdf --pages 1-10 --outdir out
@@ -87,7 +89,7 @@ ai-scripts/
 └── upscale/
 ```
 
-Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: Demucs and Marker resolve to incompatible torch and numpy lines, so a single environment for all eight does not exist. Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
+Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: Demucs and Marker resolve to incompatible torch and numpy lines, so a single environment for all nine does not exist. Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
 
 ### Server flags
 
@@ -107,11 +109,13 @@ curl -N localhost:7777/api/jobs/<id>/events    # SSE progress
 curl -O localhost:7777/api/jobs/<id>/artifacts/speech.wav
 ```
 
-`GET /api/tasks` returns the catalog the UI renders its forms from, so a client can discover every task and parameter without hardcoding them.
+`GET /api/tasks` returns the catalog the UI renders its forms from, so a client can discover every task and parameter without hardcoding them. `GET` and `PUT /api/lexicon` read and replace the dictation vocabulary, which the browser attaches to each dictation job.
 
 ## Notes
 
-- **One job at a time by default.** All eight tasks contend for the same unified memory, so `--jobs 1` avoids an out-of-memory failure halfway through a long run. Raise it if you know the two tasks fit.
+- **One job at a time by default.** All nine tasks contend for the same unified memory, so `--jobs 1` avoids an out-of-memory failure halfway through a long run. Raise it if you know the two tasks fit.
+- **Dictation needs an HTTPS address.** Browsers only open the microphone in a secure context, so the recorder is dead on a plain `http://` LAN address. Put a TLS-terminating proxy in front, or use the task from the machine the server runs on.
+- **Dictation is two passes.** Qwen3-ASR writes the transcript with the vocabulary biasing its decoder, then Gemma rewrites it into clean prose using the vocabulary and the correction list. The job page shows one pane with diff, raw and polished tabs, and copies whichever tab is open.
 - **Loopback by default.** The server executes local scripts and has no authentication, so binding it to `0.0.0.0` hands anyone on the network a shell-adjacent surface.
 - **Voice cloning cuts a long reference.** F5-TTS conditions on the reference clip and the new speech as one sequence, so anything past 15 seconds is dropped and the transcript is taken from what remains. A longer clip left whole comes back as babble.
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.

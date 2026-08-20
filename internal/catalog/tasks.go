@@ -72,6 +72,33 @@ var tasks = []Task{
 		},
 	},
 	{
+		ID:          "dictate",
+		Title:       "Dictation",
+		Group:       "Speech",
+		Description: "Speak into the browser and get clean written text back, spelled the way you want it.",
+		Engine:      "Qwen3-ASR + Gemma 4",
+		Icon:        "mic-vocal",
+		Project:     "dictate",
+		Params: []Param{
+			{Name: "input", Label: "Recording", Type: ParamFile, Required: true, Widget: "record",
+				Accept: audioExts + ",.webm,.mp4"},
+			{Name: "lexicon", Label: "Vocabulary and corrections", Type: ParamFile, Widget: "lexicon", Accept: ".json",
+				Help: "Spellings to hold on to, and phrases the recogniser has got wrong before. Saved for every device."},
+			{Name: "asr-model", Label: "Recognizer", Type: ParamSelect, Default: "Qwen/Qwen3-ASR-1.7B", Options: []Option{
+				{Value: "Qwen/Qwen3-ASR-1.7B", Label: "Qwen3-ASR 1.7B (recommended)"},
+				{Value: "Qwen/Qwen3-ASR-0.6B", Label: "Qwen3-ASR 0.6B (faster, lighter)"},
+			}},
+			{Name: "polish", Label: "Polish the transcript into written text", Type: ParamBool, Default: "true"},
+			{Name: "polish-model", Label: "Polish model", Type: ParamSelect, Default: "mlx-community/gemma-4-12B-it-4bit",
+				VisibleWhen: &Condition{Param: "polish", Equals: "true"}, Options: []Option{
+					{Value: "mlx-community/gemma-4-12B-it-4bit", Label: "Gemma 4 12B, 4-bit (recommended)"},
+					{Value: "mlx-community/gemma-4-12B-it-8bit", Label: "Gemma 4 12B, 8-bit (slower, more memory)"},
+				}},
+			{Name: "language", Label: "Language", Type: ParamText,
+				Help: "Language name such as English or French. Leave empty to detect."},
+		},
+	},
+	{
 		ID:          "tts",
 		Title:       "Speech Synthesis",
 		Group:       "Speech",

@@ -41,7 +41,7 @@ var serveCmd = &cobra.Command{
 		jobs.Start()
 		log.Printf("INFO Running %d job(s) at a time from %s", serveFlags.jobs, serveFlags.scripts)
 
-		srv := server.New(serveFlags.host, serveFlags.port, jobs)
+		srv := server.New(serveFlags.host, serveFlags.port, serveFlags.data, jobs)
 		if err := srv.Setup(); err != nil {
 			log.Fatalf("ERROR Failed to set up the server: %v", err)
 		}

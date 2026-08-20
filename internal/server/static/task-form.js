@@ -102,7 +102,8 @@
         const when = param.visibleWhen
             ? ` data-when-param="${escapeHtml(param.visibleWhen.param)}" data-when-equals="${escapeHtml(param.visibleWhen.equals)}"`
             : '';
-        const body = (CONTROLS[param.type] || textControl)(param);
+        const widget = param.widget && TinyAI.widgets[param.widget];
+        const body = widget ? widget.html() : (CONTROLS[param.type] || textControl)(param);
 
         const heading =
             param.type === 'bool'
@@ -168,10 +169,10 @@
         }
 
         function valueOf(param) {
+            if (param.type === 'file') return files.has(param.name) ? files.get(param.name).name : '';
             const control = controlOf(param.name);
             if (!control) return '';
             if (param.type === 'bool') return control.checked ? 'true' : 'false';
-            if (param.type === 'file') return files.has(param.name) ? files.get(param.name).name : '';
             return control.value;
         }
 
@@ -220,7 +221,17 @@
         }
 
         (task.params || [])
-            .filter((param) => param.type === 'file')
+            .filter((param) => param.widget && TinyAI.widgets[param.widget])
+            .forEach((param) => {
+                const block = form.querySelector(`[data-param="${CSS.escape(param.name)}"]`);
+                TinyAI.widgets[param.widget].wire(block, (file) => {
+                    if (file) files.set(param.name, file);
+                    else files.delete(param.name);
+                });
+            });
+
+        (task.params || [])
+            .filter((param) => param.type === 'file' && !param.widget)
             .forEach((param) => {
                 const block = form.querySelector(`[data-param="${CSS.escape(param.name)}"]`);
                 const zone = block.querySelector('[data-dropzone]');
@@ -255,9 +266,8 @@
         form.addEventListener('change', applyVisibility);
         form.addEventListener('reset', () => {
             setTimeout(() => {
-                files.clear();
                 (task.params || [])
-                    .filter((param) => param.type === 'file')
+                    .filter((param) => param.type === 'file' && !param.widget)
                     .forEach((param) => showFile(param, null));
                 syncNumbers();
                 applyVisibility();

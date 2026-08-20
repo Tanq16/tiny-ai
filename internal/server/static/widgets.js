@@ -1,0 +1,289 @@
+(function () {
+    'use strict';
+
+    const TinyAI = (window.TinyAI = window.TinyAI || {});
+    const { escapeHtml, apiJSON, toast } = TinyAI;
+
+    const CAPTURE_TYPES = [
+        ['audio/webm;codecs=opus', 'webm'],
+        ['audio/webm', 'webm'],
+        ['audio/mp4', 'mp4'],
+        ['audio/ogg;codecs=opus', 'ogg'],
+    ];
+
+    function captureType() {
+        if (typeof MediaRecorder === 'undefined') return null;
+        return CAPTURE_TYPES.find(([type]) => MediaRecorder.isTypeSupported(type)) || null;
+    }
+
+    // getUserMedia is only defined in a secure context, so plain HTTP over the network cannot record.
+    function canRecord() {
+        return Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && captureType());
+    }
+
+    function clock(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function recordHtml() {
+        if (!canRecord()) {
+            return `
+                <div class="mt-2 rounded-xl bg-red/10 px-4 py-3 text-sm text-red">
+                    This browser will not open the microphone here. Recording needs an HTTPS address, so reach the
+                    app through a TLS-terminating proxy or from the machine it runs on.
+                </div>`;
+        }
+        return `
+            <div data-recorder class="mt-2 flex flex-col items-center gap-3 rounded-xl bg-mantle/60 px-4 py-7">
+                <button type="button" data-record
+                        class="flex h-16 w-16 items-center justify-center rounded-full bg-mauve text-crust transition-colors hover:bg-lavender">
+                    <i data-lucide="mic-vocal" class="h-7 w-7"></i>
+                </button>
+                <span data-timer class="font-mono text-lg text-text">0:00</span>
+                <p data-hint class="text-sm text-subtext0">Tap to start recording</p>
+            </div>
+            <div data-clip class="mt-2 hidden space-y-3 rounded-xl bg-mantle/60 p-4">
+                <audio controls data-preview preload="metadata"></audio>
+                <button type="button" data-again
+                        class="inline-flex items-center gap-2 rounded-lg bg-surface0/70 px-3 py-1.5 text-sm text-subtext1 hover:bg-surface1">
+                    <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+                    <span>Record again</span>
+                </button>
+            </div>`;
+    }
+
+    function wireRecord(block, setFile) {
+        if (!canRecord()) return;
+
+        const recorder = block.querySelector('[data-recorder]');
+        const button = block.querySelector('[data-record]');
+        const timer = block.querySelector('[data-timer]');
+        const hint = block.querySelector('[data-hint]');
+        const clip = block.querySelector('[data-clip]');
+        const preview = block.querySelector('[data-preview]');
+
+        let media = null;
+        let stream = null;
+        let ticker = null;
+        let startedAt = 0;
+        let previewURL = null;
+
+        function reset() {
+            clearInterval(ticker);
+            ticker = null;
+            timer.textContent = '0:00';
+            hint.textContent = 'Tap to start recording';
+            button.classList.remove('bg-red', 'hover:bg-maroon', 'animate-pulse');
+            button.classList.add('bg-mauve', 'hover:bg-lavender');
+            button.innerHTML = '<i data-lucide="mic-vocal" class="h-7 w-7"></i>';
+            lucide.createIcons({ root: button });
+        }
+
+        function showClip(file) {
+            if (previewURL) URL.revokeObjectURL(previewURL);
+            previewURL = URL.createObjectURL(file);
+            preview.src = previewURL;
+            recorder.classList.add('hidden');
+            clip.classList.remove('hidden');
+            setFile(file);
+        }
+
+        async function start() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (error) {
+                toast(`Could not open the microphone: ${error.message}`, 'error');
+                return;
+            }
+            const [type, extension] = captureType();
+            const chunks = [];
+            media = new MediaRecorder(stream, { mimeType: type });
+            media.addEventListener('dataavailable', (event) => {
+                if (event.data.size) chunks.push(event.data);
+            });
+            media.addEventListener('stop', () => {
+                stream.getTracks().forEach((track) => track.stop());
+                stream = null;
+                reset();
+                showClip(new File(chunks, `dictation.${extension}`, { type }));
+            });
+            media.start();
+
+            startedAt = Date.now();
+            hint.textContent = 'Tap to stop';
+            button.classList.remove('bg-mauve', 'hover:bg-lavender');
+            button.classList.add('bg-red', 'hover:bg-maroon', 'animate-pulse');
+            button.innerHTML = '<i data-lucide="circle-stop" class="h-7 w-7"></i>';
+            lucide.createIcons({ root: button });
+            ticker = setInterval(() => {
+                timer.textContent = clock((Date.now() - startedAt) / 1000);
+            }, 250);
+        }
+
+        button.addEventListener('click', () => {
+            if (media && media.state === 'recording') {
+                media.stop();
+                return;
+            }
+            start();
+        });
+
+        block.querySelector('[data-again]').addEventListener('click', () => {
+            clip.classList.add('hidden');
+            recorder.classList.remove('hidden');
+            setFile(null);
+        });
+    }
+
+    function chipHtml(term, index) {
+        return `
+            <span class="inline-flex items-center gap-1.5 rounded-lg bg-surface0/70 px-2.5 py-1 text-sm text-subtext1">
+                <span class="font-mono">${escapeHtml(term)}</span>
+                <button type="button" data-drop-term="${index}" class="text-overlay1 hover:text-red" title="Remove">
+                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                </button>
+            </span>`;
+    }
+
+    function correctionHtml(entry, index) {
+        return `
+            <div class="flex items-center gap-2 rounded-lg bg-surface0/50 px-2.5 py-1.5 text-sm">
+                <span class="min-w-0 flex-1 truncate font-mono text-overlay1">${escapeHtml(entry.from)}</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 shrink-0 text-overlay0"></i>
+                <span class="min-w-0 flex-1 truncate font-mono text-subtext1">${escapeHtml(entry.to)}</span>
+                <button type="button" data-drop-correction="${index}" class="shrink-0 text-overlay1 hover:text-red" title="Remove">
+                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                </button>
+            </div>`;
+    }
+
+    const ADD_BUTTON =
+        'shrink-0 rounded-lg bg-surface0/70 px-2.5 py-2 text-subtext1 hover:bg-surface1 hover:text-mauve';
+    const TEXT_INPUT =
+        'min-w-0 flex-1 rounded-lg bg-surface0/60 px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:outline-none focus:ring-1 focus:ring-mauve/60';
+
+    function lexiconHtml() {
+        return `
+            <div class="mt-3 space-y-4">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-overlay1">
+                        <i data-lucide="book-a" class="h-3.5 w-3.5"></i>
+                        <span>Vocabulary</span>
+                    </div>
+                    <div data-terms class="flex flex-wrap gap-2"></div>
+                    <div class="flex items-center gap-2">
+                        <input type="text" data-new-term placeholder="A word to spell exactly this way" class="${TEXT_INPUT}">
+                        <button type="button" data-add-term class="${ADD_BUTTON}" title="Add">
+                            <i data-lucide="plus" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-overlay1">
+                        <i data-lucide="spell-check" class="h-3.5 w-3.5"></i>
+                        <span>Known mishearings</span>
+                    </div>
+                    <div data-corrections class="space-y-1.5"></div>
+                    <div class="flex items-center gap-2">
+                        <input type="text" data-new-from placeholder="What it heard" class="${TEXT_INPUT}">
+                        <input type="text" data-new-to placeholder="What you meant" class="${TEXT_INPUT}">
+                        <button type="button" data-add-correction class="${ADD_BUTTON}" title="Add">
+                            <i data-lucide="plus" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function wireLexicon(block, setFile) {
+        const terms = block.querySelector('[data-terms]');
+        const corrections = block.querySelector('[data-corrections]');
+        let state = { vocabulary: [], corrections: [] };
+
+        function attach() {
+            setFile(
+                new File([JSON.stringify(state, null, 2)], 'lexicon.json', { type: 'application/json' }),
+            );
+        }
+
+        function paint() {
+            terms.innerHTML = state.vocabulary.length
+                ? state.vocabulary.map(chipHtml).join('')
+                : '<span class="text-sm text-overlay0">No words yet.</span>';
+            corrections.innerHTML = state.corrections.length
+                ? state.corrections.map(correctionHtml).join('')
+                : '<span class="text-sm text-overlay0">No corrections yet.</span>';
+            lucide.createIcons({ root: block });
+            attach();
+        }
+
+        async function save() {
+            try {
+                state = await apiJSON('/api/lexicon', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(state),
+                });
+            } catch (error) {
+                toast(`Could not save the vocabulary: ${error.message}`, 'error');
+            }
+            paint();
+        }
+
+        function addTerm() {
+            const input = block.querySelector('[data-new-term]');
+            if (!input.value.trim()) return;
+            state.vocabulary.push(input.value.trim());
+            input.value = '';
+            save();
+        }
+
+        function addCorrection() {
+            const from = block.querySelector('[data-new-from]');
+            const to = block.querySelector('[data-new-to]');
+            if (!from.value.trim() || !to.value.trim()) return;
+            state.corrections.push({ from: from.value.trim(), to: to.value.trim() });
+            from.value = '';
+            to.value = '';
+            save();
+        }
+
+        block.querySelector('[data-add-term]').addEventListener('click', addTerm);
+        block.querySelector('[data-add-correction]').addEventListener('click', addCorrection);
+        block.addEventListener('click', (event) => {
+            const term = event.target.closest('[data-drop-term]');
+            if (term) {
+                state.vocabulary.splice(Number(term.dataset.dropTerm), 1);
+                save();
+                return;
+            }
+            const correction = event.target.closest('[data-drop-correction]');
+            if (correction) {
+                state.corrections.splice(Number(correction.dataset.dropCorrection), 1);
+                save();
+            }
+        });
+        // The widget sits inside the task form, where a bare Enter would submit the job instead.
+        block.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            if (event.target.matches('[data-new-term]')) addTerm();
+            if (event.target.matches('[data-new-from], [data-new-to]')) addCorrection();
+        });
+
+        apiJSON('/api/lexicon')
+            .then((loaded) => {
+                state = loaded || state;
+            })
+            .catch((error) => toast(`Could not load the vocabulary: ${error.message}`, 'error'))
+            .finally(paint);
+    }
+
+    TinyAI.widgets = {
+        record: { html: recordHtml, wire: wireRecord },
+        lexicon: { html: lexiconHtml, wire: wireLexicon },
+    };
+})();

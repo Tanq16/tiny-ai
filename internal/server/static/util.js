@@ -92,6 +92,23 @@
         return body;
     }
 
+    async function copyText(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch {
+            // The clipboard API needs a secure context, so plain HTTP falls back to a hidden selection.
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+    }
+
     function toast(message, kind) {
         const host = document.getElementById('toasts');
         if (!host) return;
@@ -112,5 +129,6 @@
     TinyAI.groupColor = groupColor;
     TinyAI.isTerminal = isTerminal;
     TinyAI.apiJSON = apiJSON;
+    TinyAI.copyText = copyText;
     TinyAI.toast = toast;
 })();
