@@ -353,6 +353,10 @@
             if (!data) return;
             q('[data-result-section]').classList.remove('hidden');
             const host = q('[data-result]');
+            if (view.job.task === 'dictate' && typeof data.raw === 'string') {
+                TinyAI.dictationResult(host, data);
+                return;
+            }
             if (typeof data.text === 'string') {
                 host.innerHTML = `<pre class="max-h-96 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-subtext0">${escapeHtml(
                     data.text,
@@ -407,6 +411,8 @@
         }
 
         function addArtifact(artifact) {
+            // The dictation pane already carries both transcripts, so its cards would only repeat them.
+            if (view.job.task === 'dictate') return;
             const name = artifactName(artifact);
             if (view.artifacts.has(name)) return;
             const url = artifact.url || `/api/jobs/${encodeURIComponent(view.id)}/artifacts/${encodeURIComponent(name)}`;

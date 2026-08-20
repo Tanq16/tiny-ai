@@ -115,7 +115,7 @@ curl -O localhost:7777/api/jobs/<id>/artifacts/speech.wav
 
 - **One job at a time by default.** All nine tasks contend for the same unified memory, so `--jobs 1` avoids an out-of-memory failure halfway through a long run. Raise it if you know the two tasks fit.
 - **Dictation needs an HTTPS address.** Browsers only open the microphone in a secure context, so the recorder is dead on a plain `http://` LAN address. Put a TLS-terminating proxy in front, or use the task from the machine the server runs on.
-- **Dictation is two passes.** Qwen3-ASR writes the transcript with the vocabulary biasing its decoder, then Gemma rewrites it into clean prose using the vocabulary and the correction list. Both files are kept, so you can see what the polish changed.
+- **Dictation is two passes.** Qwen3-ASR writes the transcript with the vocabulary biasing its decoder, then Gemma rewrites it into clean prose using the vocabulary and the correction list. The job page shows one pane with diff, raw and polished tabs, and copies whichever tab is open.
 - **Loopback by default.** The server executes local scripts and has no authentication, so binding it to `0.0.0.0` hands anyone on the network a shell-adjacent surface.
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.
 - **Job history survives a restart.** State lives under `data/jobs/<id>/`; a job that was running when the server died is marked failed on reload, because its process is gone.
