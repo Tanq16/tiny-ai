@@ -1,0 +1,180 @@
+package catalog
+
+const (
+	audioExts = ".mp3,.wav,.flac,.m4a,.opus,.ogg,.aac,.wma"
+	imageExts = ".png,.jpg,.jpeg,.webp,.bmp,.tiff"
+	docExts   = ".pdf,.docx,.pptx,.xlsx,.epub,.html"
+)
+
+var tasks = []Task{
+	{
+		ID:          "stems",
+		Title:       "Stem Separator",
+		Group:       "Audio",
+		Description: "Split a track into vocals, drums, bass and accompaniment, or straight into a karaoke pair.",
+		Engine:      "Demucs (htdemucs)",
+		Icon:        "audio-lines",
+		Script:      "stems.py",
+		Params: []Param{
+			{Name: "input", Label: "Audio file", Type: ParamFile, Required: true, Accept: audioExts},
+			{Name: "model", Label: "Model", Type: ParamSelect, Default: "htdemucs", Options: []Option{
+				{Value: "htdemucs", Label: "htdemucs (fast, 4 stems)"},
+				{Value: "htdemucs_ft", Label: "htdemucs_ft (fine-tuned, slower)"},
+				{Value: "htdemucs_6s", Label: "htdemucs_6s (adds guitar and piano)"},
+				{Value: "mdx_extra", Label: "mdx_extra"},
+			}},
+			{Name: "two-stems", Label: "Two-stem mode (vocals vs instrumental)", Type: ParamBool},
+			{Name: "format", Label: "Output format", Type: ParamSelect, Default: "wav", Options: []Option{
+				{Value: "wav", Label: "WAV"},
+				{Value: "mp3", Label: "MP3 320k"},
+			}},
+			{Name: "shifts", Label: "Shift passes", Type: ParamNumber, Default: "1", Min: 0, Max: 5, Step: 1,
+				Help: "Averaging passes that trade time for separation quality."},
+		},
+	},
+	{
+		ID:          "denoise",
+		Title:       "Audio Enhancer",
+		Group:       "Audio",
+		Description: "Strip room noise, hum and static out of a voice recording.",
+		Engine:      "DeepFilterNet3",
+		Icon:        "waves",
+		Script:      "denoise.py",
+		Params: []Param{
+			{Name: "input", Label: "Audio file", Type: ParamFile, Required: true, Accept: audioExts},
+			{Name: "attenuation", Label: "Noise reduction strength", Type: ParamNumber, Default: "100",
+				Min: 5, Max: 100, Step: 5, Help: "Caps how far noise is pushed down, in dB."},
+			{Name: "keep-original", Label: "Keep the original alongside the result", Type: ParamBool, Default: "true"},
+		},
+	},
+	{
+		ID:          "transcribe",
+		Title:       "Transcriber",
+		Group:       "Audio",
+		Description: "Turn speech into text, timestamps and subtitles.",
+		Engine:      "MLX Whisper",
+		Icon:        "captions",
+		Script:      "transcribe.py",
+		Params: []Param{
+			{Name: "input", Label: "Audio or video file", Type: ParamFile, Required: true, Accept: audioExts + ",.mp4,.mov,.mkv,.webm"},
+			{Name: "model", Label: "Model", Type: ParamSelect, Default: "mlx-community/whisper-large-v3-turbo", Options: []Option{
+				{Value: "mlx-community/whisper-large-v3-turbo", Label: "large-v3-turbo (recommended)"},
+				{Value: "mlx-community/whisper-large-v3-mlx", Label: "large-v3 (most accurate)"},
+				{Value: "mlx-community/whisper-medium-mlx", Label: "medium"},
+				{Value: "mlx-community/whisper-small-mlx", Label: "small (fastest)"},
+			}},
+			{Name: "task", Label: "Task", Type: ParamSelect, Default: "transcribe", Options: []Option{
+				{Value: "transcribe", Label: "Transcribe"},
+				{Value: "translate", Label: "Translate to English"},
+			}},
+			{Name: "language", Label: "Language", Type: ParamText, Help: "ISO code such as en or fr. Leave empty to detect."},
+			{Name: "word-timestamps", Label: "Word-level timestamps", Type: ParamBool},
+		},
+	},
+	{
+		ID:          "tts",
+		Title:       "Speech Synthesis",
+		Group:       "Speech",
+		Description: "Read text aloud in a natural preset voice, near instantly.",
+		Engine:      "Kokoro 82M",
+		Icon:        "mic",
+		Script:      "tts.py",
+		Params: []Param{
+			{Name: "text", Label: "Text", Type: ParamTextarea, Required: true},
+			{Name: "voice", Label: "Voice", Type: ParamSelect, Default: "af_heart", Options: []Option{
+				{Value: "af_heart", Label: "Heart (American, female)"},
+				{Value: "af_bella", Label: "Bella (American, female)"},
+				{Value: "af_nicole", Label: "Nicole (American, female)"},
+				{Value: "am_adam", Label: "Adam (American, male)"},
+				{Value: "am_michael", Label: "Michael (American, male)"},
+				{Value: "bf_emma", Label: "Emma (British, female)"},
+				{Value: "bf_isabella", Label: "Isabella (British, female)"},
+				{Value: "bm_george", Label: "George (British, male)"},
+				{Value: "bm_lewis", Label: "Lewis (British, male)"},
+			}},
+			{Name: "speed", Label: "Speed", Type: ParamNumber, Default: "1.0", Min: 0.5, Max: 2.0, Step: 0.1},
+			{Name: "format", Label: "Output format", Type: ParamSelect, Default: "wav", Options: []Option{
+				{Value: "wav", Label: "WAV"},
+				{Value: "mp3", Label: "MP3"},
+			}},
+		},
+	},
+	{
+		ID:          "voiceclone",
+		Title:       "Voice Cloning",
+		Group:       "Speech",
+		Description: "Speak new text in a voice taken from a short reference clip.",
+		Engine:      "F5-TTS (MLX)",
+		Icon:        "user-round-cog",
+		Script:      "voiceclone.py",
+		Params: []Param{
+			{Name: "text", Label: "Text to speak", Type: ParamTextarea, Required: true},
+			{Name: "preset", Label: "Reference voice", Type: ParamSelect, Default: "warm-narrator", Options: []Option{
+				{Value: "warm-narrator", Label: "Warm Narrator"},
+				{Value: "studio-host", Label: "Studio Host"},
+				{Value: "casual-peercast", Label: "Casual Peercast"},
+				{Value: "custom", Label: "Upload my own"},
+			}},
+			{Name: "ref-audio", Label: "Reference clip (5-15s)", Type: ParamFile, Accept: audioExts,
+				VisibleWhen: &Condition{Param: "preset", Equals: "custom"}},
+			{Name: "ref-text", Label: "Reference transcript", Type: ParamTextarea,
+				VisibleWhen: &Condition{Param: "preset", Equals: "custom"},
+				Help:        "Exactly what is said in the clip. Leave empty to transcribe it automatically."},
+			{Name: "speed", Label: "Speed", Type: ParamNumber, Default: "1.0", Min: 0.5, Max: 2.0, Step: 0.1},
+		},
+	},
+	{
+		ID:          "doc2md",
+		Title:       "Document to Markdown",
+		Group:       "Documents",
+		Description: "Convert a PDF or office document into clean Markdown, keeping tables and equations.",
+		Engine:      "Marker",
+		Icon:        "file-text",
+		Script:      "doc2md.py",
+		Params: []Param{
+			{Name: "input", Label: "Document", Type: ParamFile, Required: true, Accept: docExts},
+			{Name: "pages", Label: "Page range", Type: ParamText, Help: "For example 1-10. Leave empty for the whole document."},
+			{Name: "format", Label: "Output format", Type: ParamSelect, Default: "markdown", Options: []Option{
+				{Value: "markdown", Label: "Markdown"},
+				{Value: "html", Label: "HTML"},
+				{Value: "json", Label: "JSON"},
+			}},
+			{Name: "force-ocr", Label: "Force OCR on every page", Type: ParamBool,
+				Help: "Use when the embedded text layer is missing or wrong."},
+		},
+	},
+	{
+		ID:          "ocr",
+		Title:       "Image OCR",
+		Group:       "Documents",
+		Description: "Read text, layout and tables out of a screenshot, receipt or photo.",
+		Engine:      "Surya",
+		Icon:        "scan-text",
+		Script:      "ocr.py",
+		Params: []Param{
+			{Name: "input", Label: "Image", Type: ParamFile, Required: true, Accept: imageExts},
+			{Name: "tables", Label: "Recognize tables", Type: ParamBool, Default: "true"},
+			{Name: "annotate", Label: "Annotated preview", Type: ParamBool, Default: "true"},
+		},
+	},
+	{
+		ID:          "upscale",
+		Title:       "Image Upscaler",
+		Group:       "Images",
+		Description: "Raise the resolution of an image without the softness of a plain resize.",
+		Engine:      "Real-ESRGAN",
+		Icon:        "image-up",
+		Script:      "upscale.py",
+		Params: []Param{
+			{Name: "input", Label: "Image", Type: ParamFile, Required: true, Accept: imageExts},
+			{Name: "model", Label: "Model", Type: ParamSelect, Default: "anime6b", Options: []Option{
+				{Value: "anime6b", Label: "Anime 6B (illustration, line art)"},
+				{Value: "x4plus", Label: "x4plus (photographs)"},
+				{Value: "x2plus", Label: "x2plus (photographs, lighter)"},
+			}},
+			{Name: "scale", Label: "Scale", Type: ParamNumber, Default: "2.0", Min: 1.0, Max: 4.0, Step: 0.1},
+			{Name: "tile", Label: "Tile size", Type: ParamNumber, Default: "400", Min: 0, Max: 1024, Step: 16,
+				Help: "Splits large images to bound memory. 0 disables tiling."},
+		},
+	},
+}

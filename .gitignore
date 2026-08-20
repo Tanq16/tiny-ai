@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+
+bin/
+tiny-ai-suite
+
+data/
+assets/voices/*.wav
+assets/voices/*.json
+
+internal/server/static/css/
+internal/server/static/js/
+internal/server/static/fonts/
+internal/server/static/fontawesome/
