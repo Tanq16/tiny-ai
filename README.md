@@ -113,6 +113,7 @@ curl -O localhost:7777/api/jobs/<id>/artifacts/speech.wav
 
 - **One job at a time by default.** All eight tasks contend for the same unified memory, so `--jobs 1` avoids an out-of-memory failure halfway through a long run. Raise it if you know the two tasks fit.
 - **Loopback by default.** The server executes local scripts and has no authentication, so binding it to `0.0.0.0` hands anyone on the network a shell-adjacent surface.
+- **Voice cloning cuts a long reference.** F5-TTS conditions on the reference clip and the new speech as one sequence, so anything past 15 seconds is dropped and the transcript is taken from what remains. A longer clip left whole comes back as babble.
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.
 - **Job history survives a restart.** State lives under `data/jobs/<id>/`; a job that was running when the server died is marked failed on reload, because its process is gone.
 - **No Docker.** Metal is unreachable from a Linux container on macOS, which would drop every task to CPU.

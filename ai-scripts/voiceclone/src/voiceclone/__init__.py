@@ -8,12 +8,17 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import tinyai_common as common
 
 MODEL = "lucasnewman/f5-tts-mlx"
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
+WHISPER_SAMPLE_RATE = 16000
+# F5-TTS generates the reference and the new speech as one sequence, so a longer clip pushes
+# the whole thing past what the model was trained on and the output degrades into babble.
+MAX_REFERENCE_SECONDS = 15
 PRESET_DIR = Path(__file__).resolve().parents[2] / "voices"
 
 _SENTENCE = re.compile(r"[^.!?]+[.!?]*", re.S)
@@ -36,12 +41,12 @@ def resolve_reference(args: argparse.Namespace) -> tuple[Path, str]:
     return clip, json.loads(manifest.read_text())["text"].strip()
 
 
-def transcribe(clip: Path) -> str:
+def transcribe(audio: Any) -> str:
     import mlx_whisper
 
     # The MLX loaders narrate on stdout, which would corrupt the NDJSON stream.
     with contextlib.redirect_stdout(sys.stderr):
-        return mlx_whisper.transcribe(str(clip), path_or_hf_repo=WHISPER_MODEL)["text"].strip()
+        return mlx_whisper.transcribe(audio, path_or_hf_repo=WHISPER_MODEL)["text"].strip()
 
 
 def run(args: argparse.Namespace, rep: common.Reporter) -> None:
@@ -60,16 +65,28 @@ def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     rep.start(device="mlx", preset=args.preset, speed=args.speed, reference=str(clip))
     outdir = common.ensure_outdir(args.outdir)
 
-    if not ref_text:
+    reference = load_audio(str(clip), sr=SAMPLE_RATE)
+    seconds = reference.shape[0] / SAMPLE_RATE
+    trimmed = seconds > MAX_REFERENCE_SECONDS
+    if trimmed:
+        reference = reference[: MAX_REFERENCE_SECONDS * SAMPLE_RATE]
+        rep.warn(
+            f"the reference clip runs {seconds:.0f}s, which F5-TTS cannot condition on; using the "
+            f"first {MAX_REFERENCE_SECONDS}s and taking its transcript from that much audio"
+        )
+
+    if trimmed or not ref_text:
         rep.progress(None, "transcribing the reference clip")
-        ref_text = transcribe(clip)
+        # Whisper builds its mel spectrogram for 16 kHz, so it reads the clip at its own rate.
+        heard = load_audio(str(clip), sr=WHISPER_SAMPLE_RATE)
+        ref_text = transcribe(heard[: MAX_REFERENCE_SECONDS * WHISPER_SAMPLE_RATE])
+    ref_text = " ".join(ref_text.split())
     rep.log(f"reference transcript: {ref_text}")
 
     rep.progress(None, "loading F5-TTS")
     with contextlib.redirect_stdout(sys.stderr):
         model = F5TTS.from_pretrained(MODEL)
 
-    reference = load_audio(str(clip), sr=SAMPLE_RATE)
     rms = mx.sqrt(mx.mean(mx.square(reference)))
     if rms < TARGET_RMS:
         reference = reference * TARGET_RMS / rms
