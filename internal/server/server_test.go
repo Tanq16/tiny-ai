@@ -113,15 +113,53 @@ func TestCreateJobValidation(t *testing.T) {
 	}
 }
 
+func TestLexiconHandlers(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	rec := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/lexicon", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/lexicon = %d (%s), want 200", rec.Code, rec.Body.String())
+	}
+	if got := strings.TrimSpace(rec.Body.String()); got != `{"vocabulary":[],"corrections":[]}` {
+		t.Errorf("GET on a fresh data directory = %s, want empty lists", got)
+	}
+
+	body := `{"vocabulary":[" MLX ","MLX",""],"corrections":[{"from":" tank sixteen ","to":"Tanq16"},{"from":"x","to":""}]}`
+	rec = httptest.NewRecorder()
+	put := httptest.NewRequest(http.MethodPut, "/api/lexicon", strings.NewReader(body))
+	srv.mux.ServeHTTP(rec, put)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /api/lexicon = %d (%s), want 200", rec.Code, rec.Body.String())
+	}
+
+	want := `{"vocabulary":["MLX"],"corrections":[{"from":"tank sixteen","to":"Tanq16"}]}`
+	if got := strings.TrimSpace(rec.Body.String()); got != want {
+		t.Errorf("PUT returned %s, want %s", got, want)
+	}
+	rec = httptest.NewRecorder()
+	srv.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/lexicon", nil))
+	if got := strings.TrimSpace(rec.Body.String()); got != want {
+		t.Errorf("GET after PUT = %s, want %s", got, want)
+	}
+
+	rec = httptest.NewRecorder()
+	srv.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/lexicon", strings.NewReader("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("PUT with a malformed body = %d, want 400", rec.Code)
+	}
+}
+
 func newTestServer(t *testing.T) (*Server, runner.Job) {
 	t.Helper()
-	jobs, err := runner.New(runner.Config{DataDir: t.TempDir(), ScriptsDir: t.TempDir(), Workers: 1})
+	dataDir := t.TempDir()
+	jobs, err := runner.New(runner.Config{DataDir: dataDir, ScriptsDir: t.TempDir(), Workers: 1})
 	if err != nil {
 		t.Fatalf("runner.New() = %v", err)
 	}
 	t.Cleanup(jobs.Stop)
 
-	srv := New("127.0.0.1", 0, jobs)
+	srv := New("127.0.0.1", 0, dataDir, jobs)
 	if err := srv.Setup(); err != nil {
 		t.Fatalf("Setup() = %v", err)
 	}

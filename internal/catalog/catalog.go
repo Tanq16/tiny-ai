@@ -33,9 +33,11 @@ type Param struct {
 	Help     string    `json:"help,omitempty"`
 	Options  []Option  `json:"options,omitempty"`
 	Accept   string    `json:"accept,omitempty"`
-	Min      float64   `json:"min,omitempty"`
-	Max      float64   `json:"max,omitempty"`
-	Step     float64   `json:"step,omitempty"`
+	// Widget names a purpose-built frontend control, leaving the wire type of the parameter as declared.
+	Widget string  `json:"widget,omitempty"`
+	Min    float64 `json:"min,omitempty"`
+	Max    float64 `json:"max,omitempty"`
+	Step   float64 `json:"step,omitempty"`
 	// VisibleWhen names another parameter and the value it must hold for this one to apply.
 	VisibleWhen *Condition `json:"visibleWhen,omitempty"`
 }

@@ -66,18 +66,7 @@
             button.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                try {
-                    await navigator.clipboard.writeText(codeEl.textContent);
-                } catch {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = codeEl.textContent;
-                    textarea.style.position = 'fixed';
-                    textarea.style.opacity = '0';
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                }
+                await TinyAI.copyText(codeEl.textContent);
                 button.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
                 button.classList.add('copied');
                 lucide.createIcons({ root: button });

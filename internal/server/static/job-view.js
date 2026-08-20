@@ -91,7 +91,14 @@
                 </div>
 
                 <div data-result-section class="hidden space-y-3">
-                    <h2 class="font-display text-sm font-semibold text-subtext1">Result</h2>
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 class="font-display text-sm font-semibold text-subtext1">Result</h2>
+                        <button type="button" data-copy-result
+                                class="hidden items-center gap-1.5 rounded-md bg-surface0/70 px-2.5 py-1 text-xs text-subtext0 hover:bg-surface1 hover:text-mauve">
+                            <i data-lucide="copy" class="h-3.5 w-3.5"></i>
+                            <span data-copy-label>Copy</span>
+                        </button>
+                    </div>
                     <div data-result class="rounded-xl bg-mantle p-4"></div>
                 </div>
 
@@ -350,12 +357,27 @@
                 host.innerHTML = `<pre class="max-h-96 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-subtext0">${escapeHtml(
                     data.text,
                 )}</pre>`;
+                wireCopy(data.text);
                 return;
             }
             const pretty = JSON.stringify(data, null, 2);
             host.innerHTML = `<pre class="max-h-96 overflow-auto font-mono text-xs leading-relaxed text-subtext0"><code class="hljs bg-transparent p-0">${
                 hljs.highlight(pretty, { language: 'json' }).value
             }</code></pre>`;
+        }
+
+        function wireCopy(text) {
+            const button = q('[data-copy-result]');
+            const label = button.querySelector('[data-copy-label]');
+            button.classList.remove('hidden');
+            button.classList.add('inline-flex');
+            button.onclick = async () => {
+                await TinyAI.copyText(text);
+                label.textContent = 'Copied';
+                setTimeout(() => {
+                    label.textContent = 'Copy';
+                }, 2000);
+            };
         }
 
         function renderComparison() {
