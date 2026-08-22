@@ -23,7 +23,7 @@ CSS_DIR    := $(STATIC_DIR)/css
 FONTS_DIR  := $(STATIC_DIR)/fonts
 
 SCRIPTS_DIR := ai-scripts
-PROJECTS    := stems denoise transcribe dictate tts voiceclone doc2md ocr upscale
+PROJECTS    := stems denoise transcribe dictate tts voiceclone doc2md ocr imagegen upscale
 
 # Google Fonts serves woff2 only to a browser-shaped User-Agent; an unrecognized
 # one gets ttf, which is roughly twice the bytes.

@@ -187,6 +187,38 @@ var tasks = []Task{
 		},
 	},
 	{
+		ID:          "imagegen",
+		Title:       "Image Generation",
+		Group:       "Images",
+		Description: "Draw an image from a written description, in a single pass.",
+		Engine:      "Z-Image Turbo",
+		Icon:        "wand-sparkles",
+		Project:     "imagegen",
+		Params: []Param{
+			{Name: "prompt", Label: "Prompt", Type: ParamTextarea, Required: true,
+				Help: "Describe the picture. Subject, setting, lighting and style all steer the result."},
+			{Name: "model", Label: "Model", Type: ParamSelect, Default: "z-image-turbo-4bit", Options: []Option{
+				{Value: "z-image-turbo-4bit", Label: "Z-Image Turbo 6B, 4-bit (recommended, 6 GB download)"},
+				{Value: "z-image-turbo", Label: "Z-Image Turbo 6B, 8-bit (sharper, 33 GB download)"},
+				{Value: "flux2-klein-4b", Label: "FLUX.2 Klein 4B, 8-bit (fewest steps, 24 GB download)"},
+				{Value: "qwen-image", Label: "Qwen-Image 20B, 8-bit (long prompts, 58 GB download)"},
+			}},
+			{Name: "size", Label: "Size", Type: ParamSelect, Default: "1024x1024", Options: []Option{
+				{Value: "1024x1024", Label: "Square 1024 x 1024"},
+				{Value: "1280x720", Label: "Landscape 1280 x 720"},
+				{Value: "720x1280", Label: "Portrait 720 x 1280"},
+				{Value: "1536x864", Label: "Wide 1536 x 864"},
+			}},
+			{Name: "seed", Label: "Seed", Type: ParamText, Widget: "seed",
+				Help: "The same seed and prompt reproduce the same picture. Empty draws a new one every run."},
+			{Name: "steps", Label: "Steps", Type: ParamNumber, Default: "0", Min: 0, Max: 50, Step: 1,
+				Help: "0 uses the step count the chosen model was distilled for."},
+			{Name: "lora", Label: "LoRA", Type: ParamText,
+				Help: "HuggingFace repo or .safetensors path, several separated by commas. " +
+					"Add :0.5 to set its strength."},
+		},
+	},
+	{
 		ID:          "upscale",
 		Title:       "Image Upscaler",
 		Group:       "Images",

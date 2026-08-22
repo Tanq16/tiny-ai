@@ -282,8 +282,74 @@
             .finally(paint);
     }
 
+    function seedHtml() {
+        return `
+            <div class="mt-2 space-y-2">
+                <div class="flex items-center gap-2">
+                    <input type="text" inputmode="numeric" data-input="seed"
+                           placeholder="A new seed every run" class="${TEXT_INPUT}">
+                    <button type="button" data-lock class="${ADD_BUTTON}" title="Hold the last seed">
+                        <i data-lucide="lock-open" class="h-4 w-4"></i>
+                    </button>
+                </div>
+                <button type="button" data-previous class="hidden text-xs text-overlay1 hover:text-mauve">
+                    Last run drew <span data-previous-seed class="font-mono"></span>
+                </button>
+            </div>`;
+    }
+
+    function wireSeed(block) {
+        const input = block.querySelector('[data-input="seed"]');
+        const lock = block.querySelector('[data-lock]');
+        const previous = block.querySelector('[data-previous]');
+        let last = null;
+
+        function setLocked(locked) {
+            input.readOnly = locked;
+            input.classList.toggle('text-text', !locked);
+            input.classList.toggle('text-mauve', locked);
+            lock.innerHTML = `<i data-lucide="${locked ? 'lock' : 'lock-open'}" class="h-4 w-4"></i>`;
+            lucide.createIcons({ root: lock });
+        }
+
+        lock.addEventListener('click', () => {
+            const locking = !input.readOnly;
+            if (locking && !input.value) {
+                if (last === null) {
+                    toast('No earlier generation to take a seed from.', 'error');
+                    return;
+                }
+                input.value = last;
+            }
+            if (!locking) input.value = '';
+            setLocked(locking);
+        });
+
+        previous.addEventListener('click', () => {
+            input.value = last;
+        });
+
+        input.addEventListener('input', () => {
+            input.value = input.value.replace(/[^0-9]/g, '');
+        });
+
+        block.closest('form').addEventListener('reset', () => setLocked(false));
+
+        apiJSON('/api/jobs')
+            .then((data) => {
+                const drawn = (data.jobs || []).find((job) => Number.isInteger(job.result && job.result.seed));
+                if (!drawn) return;
+                last = drawn.result.seed;
+                block.querySelector('[data-previous-seed]').textContent = last;
+                previous.classList.remove('hidden');
+            })
+            // Offering the last seed is a convenience, so a failed lookup leaves the field as it is.
+            .catch(() => {});
+    }
+
     TinyAI.widgets = {
         record: { html: recordHtml, wire: wireRecord },
         lexicon: { html: lexiconHtml, wire: wireLexicon },
+        seed: { html: seedHtml, wire: wireSeed },
     };
 })();
