@@ -1,0 +1,23 @@
+[project]
+name = "imagegen"
+version = "0.1.0"
+description = "Generates an image from a text prompt with MLX diffusion models through mflux."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "tinyai-common",
+    "mflux>=0.19,<0.20",
+    "pillow>=10.2",
+]
+
+[project.scripts]
+imagegen = "imagegen:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

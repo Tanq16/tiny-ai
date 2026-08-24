@@ -45,11 +45,6 @@ func checkParam(t *testing.T, task Task, p Param) {
 	if strings.ContainsAny(p.Name, " _") {
 		t.Errorf("param %q must be a flag-shaped name", p.Name)
 	}
-	// A widget replaces the control the type would have rendered, and both of them submit a file.
-	if p.Widget != "" && p.Type != ParamFile {
-		t.Errorf("param %q carries widget %q on a %q param, which submits no file", p.Name, p.Widget, p.Type)
-	}
-
 	switch p.Type {
 	case ParamSelect:
 		if len(p.Options) == 0 {
@@ -112,6 +107,25 @@ func TestEveryTaskProjectIsRunnable(t *testing.T) {
 		entry := fmt.Sprintf("%s = %q", task.Project, task.Project+":main")
 		if !strings.Contains(string(data), entry) {
 			t.Errorf("task %q needs %s to declare `%s`", task.ID, manifest, entry)
+		}
+	}
+}
+
+// A widget names a control the frontend registers. An unregistered name is not an error the form
+// reports: it silently renders the plain control for the parameter's type instead.
+func TestEveryWidgetIsRegistered(t *testing.T) {
+	module, err := os.ReadFile(filepath.Join("..", "server", "static", "widgets.js"))
+	if err != nil {
+		t.Fatalf("could not read the widget module: %v", err)
+	}
+	for _, task := range All() {
+		for _, p := range task.Params {
+			if p.Widget == "" {
+				continue
+			}
+			if !strings.Contains(string(module), fmt.Sprintf("%s: { html:", p.Widget)) {
+				t.Errorf("task %q declares widget %q, which widgets.js does not register", task.ID, p.Widget)
+			}
 		}
 	}
 }

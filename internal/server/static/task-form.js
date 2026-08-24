@@ -103,7 +103,7 @@
             ? ` data-when-param="${escapeHtml(param.visibleWhen.param)}" data-when-equals="${escapeHtml(param.visibleWhen.equals)}"`
             : '';
         const widget = param.widget && TinyAI.widgets[param.widget];
-        const body = widget ? widget.html() : (CONTROLS[param.type] || textControl)(param);
+        const body = widget ? widget.html(param) : (CONTROLS[param.type] || textControl)(param);
 
         const heading =
             param.type === 'bool'
