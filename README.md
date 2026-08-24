@@ -20,7 +20,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 | Transcriber | MLX Whisper | Metal (MLX) | timestamped text, SRT, JSON segments |
 | Dictation | Qwen3-ASR + Gemma 4 12B | Metal (MLX) | clean written text from a browser recording, spelled your way |
 | Speech Synthesis | Kokoro 82M | Metal (MLX) | wav or mp3 from 9 preset voices |
-| Voice Cloning | F5-TTS | Metal (MLX) | wav in a voice taken from a 5 to 15 second clip |
+| Voice Cloning | F5-TTS | Metal (MLX) | wav in a voice taken from a 5 to 15 second clip, recorded in the browser or uploaded |
 | Document to Markdown | Marker | Metal (torch MPS) | Markdown, HTML or JSON, with tables, LaTeX and extracted images |
 | Image OCR | Surya | Metal (torch MPS) | reading-order text, tables as Markdown and CSV, annotated preview |
 | Image Generation | Z-Image Turbo, FLUX.2 Klein, Qwen-Image | Metal (MLX) | one png from a written prompt, on a seed you can hold and reuse |

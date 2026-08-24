@@ -27,48 +27,94 @@
         return `${m}:${String(s).padStart(2, '0')}`;
     }
 
-    function recordHtml() {
-        if (!canRecord()) {
-            return `
-                <div class="mt-2 rounded-xl bg-red/10 px-4 py-3 text-sm text-red">
-                    This browser will not open the microphone here. Recording needs an HTTPS address, so reach the
-                    app through a TLS-terminating proxy or from the machine it runs on.
-                </div>`;
-        }
+    const NEEDS_TLS =
+        'Recording needs an HTTPS address, so reach the app through a TLS-terminating proxy or from ' +
+        'the machine it runs on.';
+    const SOFT_BUTTON =
+        'inline-flex items-center gap-2 rounded-lg bg-surface0/70 px-3 py-1.5 text-sm text-subtext1 hover:bg-surface1';
+
+    function sourceHtml(body) {
+        return `<div data-source class="mt-2 flex flex-col items-center gap-3 rounded-xl bg-mantle/60 px-4 py-7">${body}</div>`;
+    }
+
+    function micHtml() {
         return `
-            <div data-recorder class="mt-2 flex flex-col items-center gap-3 rounded-xl bg-mantle/60 px-4 py-7">
-                <button type="button" data-record
-                        class="flex h-16 w-16 items-center justify-center rounded-full bg-mauve text-crust transition-colors hover:bg-lavender">
-                    <i data-lucide="mic-vocal" class="h-7 w-7"></i>
-                </button>
-                <span data-timer class="font-mono text-lg text-text">0:00</span>
-                <p data-hint class="text-sm text-subtext0">Tap to start recording</p>
-            </div>
+            <button type="button" data-record
+                    class="flex h-16 w-16 items-center justify-center rounded-full bg-mauve text-crust transition-colors hover:bg-lavender">
+                <i data-lucide="mic-vocal" class="h-7 w-7"></i>
+            </button>
+            <span data-timer class="font-mono text-lg text-text">0:00</span>
+            <p data-hint class="text-sm text-subtext0">Tap to start recording</p>`;
+    }
+
+    function clipHtml(again) {
+        return `
             <div data-clip class="mt-2 hidden space-y-3 rounded-xl bg-mantle/60 p-4">
                 <audio controls data-preview preload="metadata"></audio>
-                <button type="button" data-again
-                        class="inline-flex items-center gap-2 rounded-lg bg-surface0/70 px-3 py-1.5 text-sm text-subtext1 hover:bg-surface1">
+                <button type="button" data-again class="${SOFT_BUTTON}">
                     <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
-                    <span>Record again</span>
+                    <span>${again}</span>
                 </button>
             </div>`;
     }
 
-    function wireRecord(block, setFile) {
-        if (!canRecord()) return;
+    function recordHtml() {
+        if (!canRecord()) {
+            return `
+                <div class="mt-2 rounded-xl bg-red/10 px-4 py-3 text-sm text-red">
+                    This browser will not open the microphone here. ${NEEDS_TLS}
+                </div>`;
+        }
+        return sourceHtml(micHtml()) + clipHtml('Record again');
+    }
 
-        const recorder = block.querySelector('[data-recorder]');
-        const button = block.querySelector('[data-record]');
-        const timer = block.querySelector('[data-timer]');
-        const hint = block.querySelector('[data-hint]');
+    function captureHtml(param) {
+        const mic = canRecord() ? micHtml() : `<p class="text-center text-sm text-subtext0">${NEEDS_TLS}</p>`;
+        const pick = `
+            <button type="button" data-choose class="${SOFT_BUTTON}">
+                <i data-lucide="folder-open" class="h-4 w-4"></i>
+                <span>Pick an audio file</span>
+            </button>
+            <input type="file" data-file class="hidden" accept="${escapeHtml(param.accept || '')}">`;
+        return sourceHtml(mic + pick) + clipHtml('Start over');
+    }
+
+    function wireClip(block, setFile) {
+        const source = block.querySelector('[data-source]');
         const clip = block.querySelector('[data-clip]');
         const preview = block.querySelector('[data-preview]');
+        let previewURL = null;
+
+        function discard() {
+            clip.classList.add('hidden');
+            source.classList.remove('hidden');
+            setFile(null);
+        }
+
+        block.querySelector('[data-again]').addEventListener('click', discard);
+        block.closest('form').addEventListener('reset', discard);
+
+        return function showClip(file) {
+            if (previewURL) URL.revokeObjectURL(previewURL);
+            previewURL = URL.createObjectURL(file);
+            preview.src = previewURL;
+            source.classList.add('hidden');
+            clip.classList.remove('hidden');
+            setFile(file);
+        };
+    }
+
+    function wireMic(block, showClip, name) {
+        const button = block.querySelector('[data-record]');
+        if (!button) return;
+
+        const timer = block.querySelector('[data-timer]');
+        const hint = block.querySelector('[data-hint]');
 
         let media = null;
         let stream = null;
         let ticker = null;
         let startedAt = 0;
-        let previewURL = null;
 
         function reset() {
             clearInterval(ticker);
@@ -79,15 +125,6 @@
             button.classList.add('bg-mauve', 'hover:bg-lavender');
             button.innerHTML = '<i data-lucide="mic-vocal" class="h-7 w-7"></i>';
             lucide.createIcons({ root: button });
-        }
-
-        function showClip(file) {
-            if (previewURL) URL.revokeObjectURL(previewURL);
-            previewURL = URL.createObjectURL(file);
-            preview.src = previewURL;
-            recorder.classList.add('hidden');
-            clip.classList.remove('hidden');
-            setFile(file);
         }
 
         async function start() {
@@ -107,7 +144,7 @@
                 stream.getTracks().forEach((track) => track.stop());
                 stream = null;
                 reset();
-                showClip(new File(chunks, `dictation.${extension}`, { type }));
+                showClip(new File(chunks, `${name}.${extension}`, { type }));
             });
             media.start();
 
@@ -129,11 +166,24 @@
             }
             start();
         });
+    }
 
-        block.querySelector('[data-again]').addEventListener('click', () => {
-            clip.classList.add('hidden');
-            recorder.classList.remove('hidden');
-            setFile(null);
+    function wireRecord(block, setFile) {
+        if (!canRecord()) return;
+        wireMic(block, wireClip(block, setFile), 'dictation');
+    }
+
+    function wireCapture(block, setFile) {
+        const showClip = wireClip(block, setFile);
+        wireMic(block, showClip, 'reference');
+
+        const input = block.querySelector('[data-file]');
+        block.querySelector('[data-choose]').addEventListener('click', () => input.click());
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            // Clearing the input lets the same file be picked again after starting over.
+            input.value = '';
+            if (file) showClip(file);
         });
     }
 
@@ -349,6 +399,7 @@
 
     TinyAI.widgets = {
         record: { html: recordHtml, wire: wireRecord },
+        capture: { html: captureHtml, wire: wireCapture },
         lexicon: { html: lexiconHtml, wire: wireLexicon },
         seed: { html: seedHtml, wire: wireSeed },
     };
