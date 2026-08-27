@@ -179,6 +179,7 @@
             return;
         }
 
+        TinyAI.findTask = (id) => catalog.tasks.find((task) => task.id === id) || null;
         renderLauncher();
         route();
         loadJobs();

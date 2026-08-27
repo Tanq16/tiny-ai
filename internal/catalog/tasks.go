@@ -154,6 +154,31 @@ var tasks = []Task{
 		},
 	},
 	{
+		ID:          "chat",
+		Title:       "Small Model Chat",
+		Group:       "Chat",
+		Description: "Talk to a local Gemma about text, pictures and recordings, for as long as you like.",
+		Engine:      "Gemma 4 (MLX)",
+		Icon:        "messages-square",
+		Project:     "chat",
+		Interactive: true,
+		Params: []Param{
+			{Name: "model", Label: "Model", Type: ParamSelect, Default: "mlx-community/gemma-4-e4b-it-4bit",
+				Options: []Option{
+					{Value: "mlx-community/gemma-4-e2b-it-4bit", Label: "Gemma 4 E2B, 4-bit (fastest, 4 GB download)"},
+					{Value: "mlx-community/gemma-4-e4b-it-4bit", Label: "Gemma 4 E4B, 4-bit (recommended, 5 GB download)"},
+					{Value: "mlx-community/gemma-4-12B-it-4bit", Label: "Gemma 4 12B, 4-bit (7 GB download)"},
+					{Value: "mlx-community/gemma-4-12B-it-8bit", Label: "Gemma 4 12B, 8-bit (sharper, 13 GB download)"},
+					{Value: "mlx-community/gemma-4-26b-a4b-it-4bit", Label: "Gemma 4 26B A4B, 4-bit (no voice, 15 GB download)"},
+					{Value: "mlx-community/gemma-4-31b-it-4bit", Label: "Gemma 4 31B, 4-bit (no voice, 18 GB download)"},
+				},
+				Help: "Weights download once and load on the first message. The two largest carry no audio " +
+					"encoder, so they read pictures but cannot listen to a recording."},
+			{Name: "system", Label: "System prompt", Type: ParamTextarea,
+				Help: "Standing instructions placed ahead of the conversation. Leave empty for none."},
+		},
+	},
+	{
 		ID:          "doc2md",
 		Title:       "Document to Markdown",
 		Group:       "Documents",

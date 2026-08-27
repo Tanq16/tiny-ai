@@ -69,6 +69,10 @@ type Runner struct {
 
 	mu   sync.RWMutex
 	jobs map[string]*record
+
+	chatQueue chan *record
+	chatMu    sync.Mutex
+	chatRec   *record
 }
 
 // New prepares the data directory and reloads the jobs already on disk.
@@ -95,6 +99,7 @@ func New(cfg Config) (*Runner, error) {
 		ctx:        ctx,
 		cancel:     cancel,
 		jobs:       make(map[string]*record),
+		chatQueue:  make(chan *record, 1),
 	}
 	if err := r.reload(); err != nil {
 		cancel()
@@ -105,8 +110,9 @@ func New(cfg Config) (*Runner, error) {
 
 func (r *Runner) Start() {
 	for range r.workers {
-		r.wg.Go(r.worker)
+		r.wg.Go(func() { r.worker(r.queue) })
 	}
+	r.wg.Go(func() { r.worker(r.chatQueue) })
 }
 
 // Stop kills every running child and waits for the workers to unwind.
@@ -115,12 +121,12 @@ func (r *Runner) Stop() {
 	r.wg.Wait()
 }
 
-func (r *Runner) worker() {
+func (r *Runner) worker(queue <-chan *record) {
 	for {
 		select {
 		case <-r.ctx.Done():
 			return
-		case rec := <-r.queue:
+		case rec := <-queue:
 			r.dispatch(rec)
 		}
 	}
@@ -153,16 +159,33 @@ func (r *Runner) Submit(sub Submission) (Job, error) {
 	if err != nil {
 		return Job{}, fmt.Errorf("%w: %s", ErrUnknownTask, sub.TaskID)
 	}
+	if task.Interactive {
+		return r.startChat(task, sub)
+	}
 
+	rec, snap, err := r.prepare(task, sub)
+	if err != nil {
+		return Job{}, err
+	}
+	select {
+	case r.queue <- rec:
+	default:
+		rec.fail(ErrQueueFull.Error())
+		return snap, ErrQueueFull
+	}
+	return snap, nil
+}
+
+func (r *Runner) prepare(task catalog.Task, sub Submission) (*record, Job, error) {
 	id := newJobID()
 	dir := filepath.Join(r.jobsDir, id)
 	inputDir := filepath.Join(dir, "input")
 	outDir := filepath.Join(dir, "output")
 	if err := os.MkdirAll(inputDir, 0o755); err != nil {
-		return Job{}, err
+		return nil, Job{}, err
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return Job{}, err
+		return nil, Job{}, err
 	}
 
 	values := make(map[string]string, len(sub.Values))
@@ -177,7 +200,7 @@ func (r *Runner) Submit(sub Submission) (Job, error) {
 		size, err := saveUpload(dest, up.Content)
 		if err != nil {
 			os.RemoveAll(dir)
-			return Job{}, err
+			return nil, Job{}, err
 		}
 		files[up.Param] = dest
 		inputs = append(inputs, Input{Param: up.Param, Filename: name, Bytes: size})
@@ -186,7 +209,7 @@ func (r *Runner) Submit(sub Submission) (Job, error) {
 
 	if err := validate(task, values, files); err != nil {
 		os.RemoveAll(dir)
-		return Job{}, err
+		return nil, Job{}, err
 	}
 
 	rec := &record{
@@ -200,11 +223,13 @@ func (r *Runner) Submit(sub Submission) (Job, error) {
 			Inputs:    inputs,
 			Artifacts: []Artifact{},
 		},
-		subs:   make(map[chan Event]struct{}),
-		done:   make(chan struct{}),
-		dir:    dir,
-		outDir: outDir,
-		files:  files,
+		subs:        make(map[chan Event]struct{}),
+		done:        make(chan struct{}),
+		dir:         dir,
+		inDir:       inputDir,
+		outDir:      outDir,
+		files:       files,
+		interactive: task.Interactive,
 	}
 	rec.mu.Lock()
 	rec.publishLocked(Event{Event: EventState, State: StateQueued})
@@ -215,14 +240,7 @@ func (r *Runner) Submit(sub Submission) (Job, error) {
 	r.mu.Lock()
 	r.jobs[id] = rec
 	r.mu.Unlock()
-
-	select {
-	case r.queue <- rec:
-	default:
-		rec.fail(ErrQueueFull.Error())
-		return snap, ErrQueueFull
-	}
-	return snap, nil
+	return rec, snap, nil
 }
 
 func saveUpload(dest string, src io.Reader) (int64, error) {
@@ -333,11 +351,23 @@ func (r *Runner) ArtifactPath(id, name string) (string, error) {
 	if !ok {
 		return "", ErrJobNotFound
 	}
-	if name == "" {
+	return resolveUnder(rec.outDir, name)
+}
+
+func (r *Runner) InputPath(id, name string) (string, error) {
+	rec, ok := r.lookup(id)
+	if !ok {
+		return "", ErrJobNotFound
+	}
+	return resolveUnder(rec.inDir, name)
+}
+
+func resolveUnder(dir, name string) (string, error) {
+	if dir == "" || name == "" {
 		return "", ErrNoArtifact
 	}
-	full := filepath.Join(rec.outDir, filepath.FromSlash(name))
-	rel, err := filepath.Rel(rec.outDir, full)
+	full := filepath.Join(dir, filepath.FromSlash(name))
+	rel, err := filepath.Rel(dir, full)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", ErrNoArtifact
 	}
@@ -395,13 +425,16 @@ func (r *Runner) reload() error {
 		if snap.Artifacts == nil {
 			snap.Artifacts = []Artifact{}
 		}
+		task, _ := catalog.Get(snap.Task)
 		rec := &record{
-			snap:   snap,
-			events: events,
-			subs:   make(map[chan Event]struct{}),
-			done:   make(chan struct{}),
-			dir:    dir,
-			outDir: filepath.Join(dir, "output"),
+			snap:        snap,
+			events:      events,
+			subs:        make(map[chan Event]struct{}),
+			done:        make(chan struct{}),
+			dir:         dir,
+			inDir:       filepath.Join(dir, "input"),
+			outDir:      filepath.Join(dir, "output"),
+			interactive: task.Interactive,
 		}
 		if len(events) > 0 {
 			rec.seq = events[len(events)-1].Seq

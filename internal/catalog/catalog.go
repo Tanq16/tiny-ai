@@ -55,6 +55,7 @@ type Task struct {
 	Engine      string  `json:"engine"`
 	Icon        string  `json:"icon"`
 	Project     string  `json:"project"`
+	Interactive bool    `json:"interactive,omitempty"`
 	Params      []Param `json:"params"`
 }
 

@@ -14,6 +14,7 @@
     const GROUP_COLORS = {
         Audio: 'mauve',
         Speech: 'blue',
+        Chat: 'teal',
         Documents: 'peach',
         Images: 'green',
     };

@@ -49,7 +49,10 @@ func (s *Server) Setup() error {
 	s.mux.HandleFunc("DELETE /api/jobs/{id}", s.handleDeleteJob)
 	s.mux.HandleFunc("GET /api/jobs/{id}/events", s.handleJobEvents)
 	s.mux.HandleFunc("POST /api/jobs/{id}/cancel", s.handleCancelJob)
+	s.mux.HandleFunc("POST /api/jobs/{id}/messages", s.handleSendMessage)
+	s.mux.HandleFunc("POST /api/jobs/{id}/finish", s.handleFinishChat)
 	s.mux.HandleFunc("GET /api/jobs/{id}/artifacts/{name...}", s.handleArtifact)
+	s.mux.HandleFunc("GET /api/jobs/{id}/inputs/{name...}", s.handleInput)
 	s.mux.HandleFunc("/api/", s.handleAPINotFound)
 
 	s.mux.HandleFunc("/", s.handleIndex)
