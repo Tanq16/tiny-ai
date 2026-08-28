@@ -104,28 +104,10 @@
         };
     }
 
-    function wireMic(block, showClip, name) {
-        const button = block.querySelector('[data-record]');
-        if (!button) return;
-
-        const timer = block.querySelector('[data-timer]');
-        const hint = block.querySelector('[data-hint]');
-
+    function createRecorder(name, handlers) {
         let media = null;
         let stream = null;
         let ticker = null;
-        let startedAt = 0;
-
-        function reset() {
-            clearInterval(ticker);
-            ticker = null;
-            timer.textContent = '0:00';
-            hint.textContent = 'Tap to start recording';
-            button.classList.remove('bg-red', 'hover:bg-maroon', 'animate-pulse');
-            button.classList.add('bg-mauve', 'hover:bg-lavender');
-            button.innerHTML = '<i data-lucide="mic-vocal" class="h-7 w-7"></i>';
-            lucide.createIcons({ root: button });
-        }
 
         async function start() {
             try {
@@ -143,29 +125,56 @@
             media.addEventListener('stop', () => {
                 stream.getTracks().forEach((track) => track.stop());
                 stream = null;
-                reset();
-                showClip(new File(chunks, `${name}.${extension}`, { type }));
+                clearInterval(ticker);
+                ticker = null;
+                media = null;
+                handlers.onStop(new File(chunks, `${name}.${extension}`, { type }));
             });
             media.start();
 
-            startedAt = Date.now();
-            hint.textContent = 'Tap to stop';
-            button.classList.remove('bg-mauve', 'hover:bg-lavender');
-            button.classList.add('bg-red', 'hover:bg-maroon', 'animate-pulse');
-            button.innerHTML = '<i data-lucide="circle-stop" class="h-7 w-7"></i>';
-            lucide.createIcons({ root: button });
-            ticker = setInterval(() => {
-                timer.textContent = clock((Date.now() - startedAt) / 1000);
-            }, 250);
+            const startedAt = Date.now();
+            handlers.onStart();
+            ticker = setInterval(() => handlers.onTick((Date.now() - startedAt) / 1000), 250);
         }
 
-        button.addEventListener('click', () => {
-            if (media && media.state === 'recording') {
-                media.stop();
-                return;
-            }
-            start();
+        return {
+            recording: () => Boolean(media) && media.state === 'recording',
+            toggle: () => (media && media.state === 'recording' ? media.stop() : start()),
+        };
+    }
+
+    function wireMic(block, showClip, name) {
+        const button = block.querySelector('[data-record]');
+        if (!button) return;
+
+        const timer = block.querySelector('[data-timer]');
+        const hint = block.querySelector('[data-hint]');
+
+        function paint(icon, message) {
+            hint.textContent = message;
+            button.innerHTML = `<i data-lucide="${icon}" class="h-7 w-7"></i>`;
+            lucide.createIcons({ root: button });
+        }
+
+        const recorder = createRecorder(name, {
+            onStart() {
+                button.classList.remove('bg-mauve', 'hover:bg-lavender');
+                button.classList.add('bg-red', 'hover:bg-maroon', 'animate-pulse');
+                paint('circle-stop', 'Tap to stop');
+            },
+            onTick(seconds) {
+                timer.textContent = clock(seconds);
+            },
+            onStop(file) {
+                timer.textContent = '0:00';
+                button.classList.remove('bg-red', 'hover:bg-maroon', 'animate-pulse');
+                button.classList.add('bg-mauve', 'hover:bg-lavender');
+                paint('mic-vocal', 'Tap to start recording');
+                showClip(file);
+            },
         });
+
+        button.addEventListener('click', recorder.toggle);
     }
 
     function wireRecord(block, setFile) {
@@ -396,6 +405,8 @@
             // Offering the last seed is a convenience, so a failed lookup leaves the field as it is.
             .catch(() => {});
     }
+
+    TinyAI.recorder = { canRecord, create: createRecorder, needsTLS: NEEDS_TLS, clock };
 
     TinyAI.widgets = {
         record: { html: recordHtml, wire: wireRecord },

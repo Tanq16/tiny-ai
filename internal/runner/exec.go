@@ -24,7 +24,10 @@ const (
 	waitDelay    = 5 * time.Second
 )
 
-var scriptEvents = []string{EventStart, EventLog, EventProgress, EventArtifact, EventResult, EventDone, EventError}
+var scriptEvents = []string{
+	EventStart, EventLog, EventProgress, EventArtifact,
+	EventResult, EventDone, EventError, EventChat, EventDelta,
+}
 
 func buildArgs(task catalog.Task, projectDir, outDir string, values, files map[string]string) []string {
 	args := []string{"run", "--project", projectDir, task.Project, "--json", "--outdir", outDir}
@@ -162,6 +165,17 @@ func (r *Runner) execute(rec *record, task catalog.Task, values, files map[strin
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return killGroup(cmd.Process.Pid) }
 	cmd.WaitDelay = waitDelay
+
+	if task.Interactive {
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			rec.fail(err.Error())
+			return
+		}
+		rec.mu.Lock()
+		rec.stdin = stdin
+		rec.mu.Unlock()
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"mime"
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 
 	"github.com/Tanq16/tiny-ai/internal/catalog"
@@ -100,6 +102,8 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, runner.ErrQueueFull):
 		writeError(w, http.StatusServiceUnavailable, err.Error())
+	case errors.Is(err, runner.ErrChatBusy):
+		writeError(w, http.StatusConflict, "finish the open chat before starting another")
 	case err != nil:
 		if invalid, ok := errors.AsType[*runner.ValidationError](err); ok {
 			writeError(w, http.StatusBadRequest, invalid.Error())
@@ -154,6 +158,16 @@ func (s *Server) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleArtifact(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	full, err := s.runner.ArtifactPath(r.PathValue("id"), name)
+	serveFile(w, r, full, name, err)
+}
+
+func (s *Server) handleInput(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	full, err := s.runner.InputPath(r.PathValue("id"), name)
+	serveFile(w, r, full, name, err)
+}
+
+func serveFile(w http.ResponseWriter, r *http.Request, full, name string, err error) {
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -169,6 +183,70 @@ func (s *Server) handleArtifact(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": path.Base(name)}))
 	http.ServeFile(w, r, full)
+}
+
+func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(maxFormMemory); err != nil {
+		writeError(w, http.StatusBadRequest, "expected a multipart/form-data submission")
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	msg := runner.Message{Text: r.FormValue("text")}
+	var closers []io.Closer
+	defer func() {
+		for _, c := range closers {
+			c.Close()
+		}
+	}()
+	for _, field := range slices.Sorted(maps.Keys(r.MultipartForm.File)) {
+		for _, header := range r.MultipartForm.File[field] {
+			f, err := header.Open()
+			if err != nil {
+				log.Printf("ERROR Failed to read chat attachment %q: %v", header.Filename, err)
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("could not read the attachment %q", header.Filename))
+				return
+			}
+			closers = append(closers, f)
+			msg.Files = append(msg.Files, runner.Upload{Filename: header.Filename, Content: f})
+		}
+	}
+
+	id := r.PathValue("id")
+	job, err := s.runner.Send(id, msg)
+	if err != nil {
+		writeChatError(w, id, "send to", err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (s *Server) handleFinishChat(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := s.runner.Finish(id); err != nil {
+		writeChatError(w, id, "finish", err)
+		return
+	}
+	log.Printf("INFO Finished chat %s", id)
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "finishing"})
+}
+
+func writeChatError(w http.ResponseWriter, id, action string, err error) {
+	switch {
+	case errors.Is(err, runner.ErrJobNotFound):
+		writeError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, runner.ErrNotInteractive):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, runner.ErrJobFinished), errors.Is(err, runner.ErrChatNotReady):
+		writeError(w, http.StatusConflict, err.Error())
+	default:
+		if invalid, ok := errors.AsType[*runner.ValidationError](err); ok {
+			writeError(w, http.StatusBadRequest, invalid.Error())
+			return
+		}
+		log.Printf("ERROR Failed to %s chat %s: %v", action, id, err)
+		writeError(w, http.StatusInternalServerError, "could not "+action+" the chat")
+	}
 }
 
 func (s *Server) handleJobEvents(w http.ResponseWriter, r *http.Request) {

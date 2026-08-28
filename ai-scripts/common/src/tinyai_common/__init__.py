@@ -16,6 +16,16 @@ Wire format, one JSON object per line:
 ``fraction`` is null when the work is indeterminate. Exactly one ``done`` or ``error``
 ends the stream.
 
+An interactive task reads one JSON command per line on stdin and keeps running until
+stdin closes, adding two events:
+
+    {"event":"delta","message":"partial "}
+    {"event":"chat","role":"assistant","message":"the complete turn"}
+
+``delta`` carries a fragment as it is generated and the backend relays it without
+recording it, so only the ``chat`` event that closes a turn reaches job history.
+``role`` is ``assistant`` for a reply and ``error`` for a turn that failed.
+
 A boolean flag the catalog declares as defaulting on is negatable, so the backend can switch it
 off with ``--no-<name>``. Declare those with ``argparse.BooleanOptionalAction``; a flag that
 defaults off stays a plain ``store_true``.
@@ -119,6 +129,12 @@ class Reporter:
         self._emit(entry)
         return p
 
+    def delta(self, text: str) -> None:
+        self._emit({"event": "delta", "message": text})
+
+    def chat(self, role: str, text: str) -> None:
+        self._emit({"event": "chat", "role": role, "message": text})
+
     def result(self, data: dict[str, Any]) -> None:
         self._emit({"event": "result", "data": data})
 
@@ -146,6 +162,13 @@ class Reporter:
             text = payload["data"].get("text")
             if isinstance(text, str):
                 print(text)
+            return
+        if kind == "delta":
+            print(payload["message"], end="", flush=True)
+            return
+        if kind == "chat":
+            self._clear_line()
+            print()
             return
         if self.quiet:
             return

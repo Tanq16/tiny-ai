@@ -2,6 +2,7 @@ package runner
 
 import (
 	"cmp"
+	"io"
 	"maps"
 	"math"
 	"net/url"
@@ -72,6 +73,8 @@ const (
 	EventDone     = "done"
 	EventError    = "error"
 	EventState    = "state"
+	EventChat     = "chat"
+	EventDelta    = "delta"
 )
 
 type Event struct {
@@ -92,6 +95,8 @@ type Event struct {
 	Status    string         `json:"status,omitzero"`
 	DurationS *float64       `json:"duration_s,omitzero"`
 	Traceback string         `json:"traceback,omitzero"`
+	Role      string         `json:"role,omitzero"`
+	Files     []string       `json:"files,omitzero"`
 }
 
 // Subscription carries the replayed history and, while the job is still live, the stream that follows it.
@@ -112,20 +117,25 @@ type record struct {
 	done   chan struct{}
 
 	dir       string
+	inDir     string
 	outDir    string
 	files     map[string]string
 	startWall time.Time
 	cancel    func()
 	canceled  bool
+
+	interactive bool
+	sendMu      sync.Mutex
+	stdin       io.WriteCloser
+	turns       int
 }
 
 func stamp() time.Time { return time.Now().UTC().Truncate(time.Second) }
 
-func (rec *record) publishLocked(e Event) {
+func (rec *record) fanoutLocked(e Event) Event {
 	rec.seq++
 	e.Seq = rec.seq
 	e.At = stamp()
-	rec.events = append(rec.events, e)
 	for ch := range rec.subs {
 		select {
 		case ch <- e:
@@ -134,6 +144,11 @@ func (rec *record) publishLocked(e Event) {
 			close(ch)
 		}
 	}
+	return e
+}
+
+func (rec *record) publishLocked(e Event) {
+	rec.events = append(rec.events, rec.fanoutLocked(e))
 }
 
 func (rec *record) publish(e Event) {
@@ -243,6 +258,9 @@ func (rec *record) apply(e Event) {
 	defer rec.mu.Unlock()
 
 	switch e.Event {
+	case EventDelta:
+		rec.fanoutLocked(e)
+		return
 	case EventProgress:
 		if e.Fraction != nil {
 			rec.snap.Progress.Fraction = min(max(*e.Fraction, 0), 1)
@@ -260,6 +278,9 @@ func (rec *record) apply(e Event) {
 		}
 	}
 	rec.publishLocked(e)
+	if e.Event == EventChat {
+		rec.persistLocked()
+	}
 }
 
 func (rec *record) artifactLocked(e Event) Artifact {

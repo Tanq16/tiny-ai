@@ -60,7 +60,7 @@
                     </div>
                 </div>
 
-                <div class="rounded-xl bg-mantle p-4">
+                <div data-progress-panel class="rounded-xl bg-mantle p-4">
                     <div class="flex items-baseline justify-between gap-3">
                         <span data-progress-message class="truncate text-sm text-subtext1">Waiting for the runner</span>
                         <span data-elapsed class="shrink-0 font-mono text-sm text-overlay1"></span>
@@ -75,6 +75,8 @@
                 </div>
 
                 <div data-summary class="flex flex-wrap gap-2"></div>
+
+                <div data-chat-host class="hidden"></div>
 
                 <div data-error class="hidden rounded-xl bg-red/10 p-4">
                     <div class="flex items-center gap-2 text-sm font-medium text-red">
@@ -256,6 +258,7 @@
             ticker: null,
             finished: false,
             fraction: null,
+            chat: null,
         };
         active = view;
 
@@ -281,6 +284,7 @@
             q('[data-cancel]').classList.toggle('flex', running);
             q('[data-delete]').classList.toggle('hidden', running);
             q('[data-delete]').classList.toggle('flex', !running);
+            if (view.chat) view.chat.setLive(running);
 
             const color =
                 state === 'succeeded' ? 'bg-green' : state === 'failed' ? 'bg-red' : state === 'canceled' ? 'bg-peach' : 'bg-mauve';
@@ -445,6 +449,7 @@
                 if (event.seq <= view.lastSeq) return;
                 view.lastSeq = event.seq;
             }
+            if (view.chat) view.chat.apply(event);
             switch (event.event) {
                 case 'state':
                     setState(event.state);
@@ -457,6 +462,9 @@
                     break;
                 case 'progress':
                     setProgress(event.fraction, event.message, event.current, event.total);
+                    break;
+                case 'chat':
+                case 'delta':
                     break;
                 case 'artifact':
                     addArtifact(event);
@@ -564,6 +572,14 @@
             container.querySelector('h1').textContent = job.title || job.task;
             q('[data-summary]').innerHTML = summaryChips(job);
             lucide.createIcons({ root: q('[data-summary]') });
+
+            const task = TinyAI.findTask ? TinyAI.findTask(job.task) : null;
+            if (task && task.interactive) {
+                const host = q('[data-chat-host]');
+                host.classList.remove('hidden');
+                q('[data-progress-panel]').classList.add('hidden');
+                view.chat = TinyAI.chatPane(host, job, onUpdate);
+            }
             setState(job.state);
             if (job.progress) setProgress(job.progress.fraction, job.progress.message);
             (job.artifacts || []).forEach(addArtifact);
