@@ -16,7 +16,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 
 | Task | Engine | Runs on | Output |
 |---|---|---|---|
-| Stem Separator | Demucs, SCNet XL, BS Roformer | Metal (torch MPS) | 4 or 6 stems, or drums or vocals against everything else, plus a zip |
+| Stem Separator | BS Roformer SW | Metal (torch MPS) | 4 or 6 stems, or drums or vocals against everything else, plus a zip |
 | Audio Enhancer | DeepFilterNet3 | Metal or CPU | denoised wav, original kept for A/B |
 | Transcriber | MLX Whisper | Metal (MLX) | timestamped text, SRT, JSON segments |
 | Dictation | Qwen3-ASR + Gemma 4 12B | Metal (MLX) | clean written text from a browser recording, spelled your way |
@@ -94,7 +94,7 @@ ai-scripts/
 └── upscale/
 ```
 
-Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: Demucs and Marker resolve to incompatible torch and numpy lines, so a single environment for all eleven does not exist. Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
+Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: DeepFilterNet holds Audio Enhancer on torch 2.8 and numpy 1.26 while every other torch task resolves to 2.13 and 2.5, so a single environment for all eleven does not exist. Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
 
 ### Server flags
 

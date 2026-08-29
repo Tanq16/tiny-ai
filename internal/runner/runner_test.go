@@ -37,13 +37,13 @@ func TestBuildArgs(t *testing.T) {
 			name: "declared order regardless of map order",
 			task: stems,
 			values: map[string]string{
-				"passes": "2", "format": "mp3", "preset": "four-best",
+				"format": "mp3", "preset": "four-best",
 			},
 			files: map[string]string{"input": "/jobs/j1/input/song.mp3"},
 			want: []string{
 				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/jobs/j1/input/song.mp3", "--preset", "four-best",
-				"--format", "mp3", "--passes", "2",
+				"--format", "mp3",
 			},
 		},
 		{
