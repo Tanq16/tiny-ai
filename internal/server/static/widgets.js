@@ -402,7 +402,6 @@
                 block.querySelector('[data-previous-seed]').textContent = last;
                 previous.classList.remove('hidden');
             })
-            // Offering the last seed is a convenience, so a failed lookup leaves the field as it is.
             .catch(() => {});
     }
 
