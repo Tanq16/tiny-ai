@@ -16,7 +16,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 
 | Task | Engine | Runs on | Output |
 |---|---|---|---|
-| Stem Separator | Demucs `htdemucs` | Metal (torch MPS) | vocals, drums, bass, other, or a karaoke pair, plus a zip |
+| Stem Separator | Demucs, SCNet XL, BS Roformer | Metal (torch MPS) | 4 or 6 stems, or drums or vocals against everything else, plus a zip |
 | Audio Enhancer | DeepFilterNet3 | Metal or CPU | denoised wav, original kept for A/B |
 | Transcriber | MLX Whisper | Metal (MLX) | timestamped text, SRT, JSON segments |
 | Dictation | Qwen3-ASR + Gemma 4 12B | Metal (MLX) | clean written text from a browser recording, spelled your way |
@@ -77,7 +77,7 @@ Every task takes `--outdir`, `--json`, `--quiet` and `--device` on top of its ow
 ```bash
 uv run --project ai-scripts/transcribe transcribe --input talk.opus --outdir out
 uv run --project ai-scripts/dictate dictate --input note.m4a --lexicon data/lexicon.json --outdir out
-uv run --project ai-scripts/stems stems --input song.mp3 --two-stems --format mp3 --outdir out
+uv run --project ai-scripts/stems stems --input song.mp3 --preset drums-best --format mp3 --outdir out
 uv run --project ai-scripts/tts tts --text "Ready when you are." --voice bf_emma --outdir out
 uv run --project ai-scripts/imagegen imagegen --prompt "a red fox in fresh snow" --seed 42 --outdir out
 echo '{"text":"hello"}' | uv run --project ai-scripts/chat chat --model mlx-community/gemma-4-e4b-it-4bit --outdir out

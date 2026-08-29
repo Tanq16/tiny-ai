@@ -37,33 +37,33 @@ func TestBuildArgs(t *testing.T) {
 			name: "declared order regardless of map order",
 			task: stems,
 			values: map[string]string{
-				"shifts": "2", "format": "mp3", "model": "htdemucs", "two-stems": "true",
+				"passes": "2", "format": "mp3", "preset": "four-best",
 			},
 			files: map[string]string{"input": "/jobs/j1/input/song.mp3"},
 			want: []string{
 				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
-				"--input", "/jobs/j1/input/song.mp3", "--model", "htdemucs", "--two-stems",
-				"--format", "mp3", "--shifts", "2",
+				"--input", "/jobs/j1/input/song.mp3", "--preset", "four-best",
+				"--format", "mp3", "--passes", "2",
 			},
 		},
 		{
 			name:   "false bool is omitted entirely",
-			task:   stems,
-			values: map[string]string{"two-stems": "false", "model": "mdx_extra"},
+			task:   transcribe,
+			values: map[string]string{"word-timestamps": "false", "task": "translate"},
 			files:  map[string]string{"input": "/in.wav"},
 			want: []string{
-				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
-				"--input", "/in.wav", "--model", "mdx_extra",
+				"run", "--project", "/scripts/transcribe", "transcribe", "--json", "--outdir", "/jobs/j1/output",
+				"--input", "/in.wav", "--task", "translate",
 			},
 		},
 		{
 			name:   "checkbox on is truthy",
-			task:   stems,
-			values: map[string]string{"two-stems": "on"},
+			task:   transcribe,
+			values: map[string]string{"word-timestamps": "on"},
 			files:  map[string]string{"input": "/in.wav"},
 			want: []string{
-				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
-				"--input", "/in.wav", "--two-stems",
+				"run", "--project", "/scripts/transcribe", "transcribe", "--json", "--outdir", "/jobs/j1/output",
+				"--input", "/in.wav", "--word-timestamps",
 			},
 		},
 		{
@@ -98,11 +98,11 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name:   "missing file param contributes no flag",
 			task:   stems,
-			values: map[string]string{"model": "htdemucs"},
+			values: map[string]string{"preset": "four-fast"},
 			files:  nil,
 			want: []string{
 				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
-				"--model", "htdemucs",
+				"--preset", "four-fast",
 			},
 		},
 	}
@@ -198,9 +198,9 @@ func TestValidate(t *testing.T) {
 		files   map[string]string
 		wantErr string
 	}{
-		{"complete submission", stems, map[string]string{"model": "htdemucs"}, map[string]string{"input": "/a.wav"}, ""},
+		{"complete submission", stems, map[string]string{"preset": "four-fast"}, map[string]string{"input": "/a.wav"}, ""},
 		{"unknown parameter", stems, map[string]string{"nope": "1"}, map[string]string{"input": "/a.wav"}, `task "stems" has no parameter "nope"`},
-		{"missing required file", stems, map[string]string{"model": "htdemucs"}, nil, `parameter "input" is required`},
+		{"missing required file", stems, map[string]string{"preset": "four-fast"}, nil, `parameter "input" is required`},
 		{"missing required text", tts, map[string]string{"voice": "af_heart"}, nil, `parameter "text" is required`},
 		{"whitespace does not satisfy required text", tts, map[string]string{"text": "   "}, nil, `parameter "text" is required`},
 		{"file param sent as text", stems, map[string]string{"input": "/a.wav"}, nil, `parameter "input" must be sent as a file`},
