@@ -6,6 +6,24 @@
 
     const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff'];
     const ACCEPT = `.${IMAGE_EXTS.join(',.')},.mp3,.wav,.flac,.m4a,.opus,.ogg,.aac,.webm,.mp4`;
+    const ACCEPT_EXTS = ACCEPT.split(',').map((entry) => entry.slice(1));
+    const PASTE_EXTS = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/webp': 'webp',
+        'image/bmp': 'bmp',
+        'image/gif': 'gif',
+        'image/tiff': 'tiff',
+        'audio/mpeg': 'mp3',
+        'audio/wav': 'wav',
+        'audio/x-wav': 'wav',
+        'audio/flac': 'flac',
+        'audio/mp4': 'm4a',
+        'audio/ogg': 'ogg',
+        'audio/opus': 'opus',
+        'audio/aac': 'aac',
+        'audio/webm': 'webm',
+    };
 
     const ICON_BUTTON =
         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface0/70 text-subtext1 ' +
@@ -14,8 +32,18 @@
         'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-mauve text-crust ' +
         'transition-colors hover:bg-lavender disabled:cursor-not-allowed disabled:opacity-40';
 
+    function extensionOf(name) {
+        return String(name).split('.').pop().toLowerCase();
+    }
+
     function isImage(name) {
-        return IMAGE_EXTS.includes(String(name).split('.').pop().toLowerCase());
+        return IMAGE_EXTS.includes(extensionOf(name));
+    }
+
+    function namePasted(file, ordinal) {
+        if (file.name && ACCEPT_EXTS.includes(extensionOf(file.name))) return file;
+        const ext = PASTE_EXTS[file.type];
+        return ext ? new File([file], `pasted-${ordinal}.${ext}`, { type: file.type }) : null;
     }
 
     function inputURL(jobId, name) {
@@ -98,6 +126,7 @@
         const status = q('[data-status]');
 
         let attachments = [];
+        let pasted = 0;
         let streaming = null;
         let waiting = false;
         let live = true;
@@ -240,6 +269,16 @@
         picker.addEventListener('change', () => {
             attachments.push(...picker.files);
             picker.value = '';
+            paintChips();
+        });
+        input.addEventListener('paste', (event) => {
+            const dropped = Array.from(event.clipboardData ? event.clipboardData.files : []);
+            if (!dropped.length) return;
+            event.preventDefault();
+            const kept = dropped.map((file) => namePasted(file, ++pasted)).filter(Boolean);
+            if (kept.length < dropped.length) toast('Only pictures and recordings can be attached', 'error');
+            if (!kept.length) return;
+            attachments.push(...kept);
             paintChips();
         });
         chips.addEventListener('click', (event) => {

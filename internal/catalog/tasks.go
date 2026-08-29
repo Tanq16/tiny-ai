@@ -11,25 +11,31 @@ var tasks = []Task{
 		ID:          "stems",
 		Title:       "Stem Separator",
 		Group:       "Audio",
-		Description: "Split a track into vocals, drums, bass and accompaniment, or straight into a karaoke pair.",
-		Engine:      "Demucs (htdemucs)",
+		Description: "Split a track into instrument stems, or lift the drums or the vocals away from everything else.",
+		Engine:      "Demucs, SCNet XL, BS Roformer",
 		Icon:        "audio-lines",
 		Project:     "stems",
 		Params: []Param{
 			{Name: "input", Label: "Audio file", Type: ParamFile, Required: true, Accept: audioExts},
-			{Name: "model", Label: "Model", Type: ParamSelect, Default: "htdemucs", Options: []Option{
-				{Value: "htdemucs", Label: "htdemucs (fast, 4 stems)"},
-				{Value: "htdemucs_ft", Label: "htdemucs_ft (fine-tuned, slower)"},
-				{Value: "htdemucs_6s", Label: "htdemucs_6s (adds guitar and piano)"},
-				{Value: "mdx_extra", Label: "mdx_extra"},
-			}},
-			{Name: "two-stems", Label: "Two-stem mode (vocals vs instrumental)", Type: ParamBool},
+			{Name: "preset", Label: "Model combination", Type: ParamSelect, Default: "four-fast", Options: []Option{
+				{Value: "four-fast", Label: "4 stems, fast (htdemucs)"},
+				{Value: "four-better", Label: "4 stems, better (SCNet XL IHF)"},
+				{Value: "four-best", Label: "4 stems, best (SCNet XL IHF, BS Roformer and htdemucs_ft)"},
+				{Value: "six-better", Label: "6 stems with guitar and piano, better (htdemucs_6s)"},
+				{Value: "six-best", Label: "6 stems with guitar and piano, best (the 4-stem trio plus htdemucs_6s)"},
+				{Value: "drums-fast", Label: "Drums against everything else, fast (SCNet XL IHF)"},
+				{Value: "drums-best", Label: "Drums against everything else, best (SCNet XL IHF, BS Roformer and htdemucs_ft)"},
+				{Value: "vocals-fast", Label: "Vocals against everything else, fast (MelBand Roformer)"},
+				{Value: "vocals-best", Label: "Vocals against everything else, best (MelBand Roformer and BS Roformer)"},
+			}, Help: "The htdemucs options reuse weights already on disk. Every other option downloads its " +
+				"own weights once, between 200 MB and 900 MB each, and the best tiers also run every " +
+				"transformer model again over a channel-swapped and a polarity-inverted copy of the track."},
 			{Name: "format", Label: "Output format", Type: ParamSelect, Default: "wav", Options: []Option{
-				{Value: "wav", Label: "WAV"},
+				{Value: "wav", Label: "WAV, 32-bit float"},
 				{Value: "mp3", Label: "MP3 320k"},
 			}},
-			{Name: "shifts", Label: "Shift passes", Type: ParamNumber, Default: "1", Min: 0, Max: 5, Step: 1,
-				Help: "Averaging passes that trade time for separation quality."},
+			{Name: "passes", Label: "Averaging passes", Type: ParamNumber, Default: "1", Min: 1, Max: 5, Step: 1,
+				Help: "Averages the result over that many shifted copies of the track. Higher is slower and cleaner."},
 		},
 	},
 	{
