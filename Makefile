@@ -1,4 +1,4 @@
-.PHONY: help assets font nerdfont verify-assets clean build build-for run test lint py-lock py-sync voices version
+.PHONY: help assets font nerdfont verify-assets clean build build-for build-all run test lint py-lock py-sync voices version
 
 # =============================================================================
 # Variables
@@ -12,15 +12,20 @@ GOARCH  ?= $(shell go env GOARCH)
 
 # Pinned asset versions. Bump deliberately, never float.
 TAILWIND_VERSION    := 4.3.3
-LUCIDE_VERSION      := 1.31.0
-MARKED_VERSION      := 18.0.9
+LUCIDE_VERSION      := 1.34.0
+MARKED_VERSION      := 18.0.11
 HIGHLIGHTJS_VERSION := 11.12.0
-NERDFONT_VERSION    := 3.5.0
+NERDFONT_VERSION    := 3.5.1
+
+NERDFONT := 0
 
 STATIC_DIR := internal/server/static
 JS_DIR     := $(STATIC_DIR)/js
 CSS_DIR    := $(STATIC_DIR)/css
 FONTS_DIR  := $(STATIC_DIR)/fonts
+STAMP      := internal/server/.assets-stamp
+
+MONO := $(if $(filter 1,$(NERDFONT)),nerdfont,font FAMILY="JetBrains+Mono" SLUG=jetbrains-mono WEIGHTS="400;700")
 
 SCRIPTS_DIR := ai-scripts
 PROJECTS    := stems denoise transcribe dictate tts voiceclone chat doc2md ocr imagegen upscale
@@ -47,17 +52,21 @@ help: ## Show this help
 # =============================================================================
 # Assets
 # =============================================================================
-assets: ## Download pinned frontend assets (never committed)
+assets: $(STAMP) ## Download pinned frontend assets (never committed)
+	@:
+
+$(STAMP): $(MAKEFILE_LIST)
 	@mkdir -p $(JS_DIR) $(CSS_DIR) $(FONTS_DIR)
 	@curl -sfL "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@$(TAILWIND_VERSION)" -o "$(JS_DIR)/tailwind.js"
 	@curl -sfL "https://cdn.jsdelivr.net/npm/lucide@$(LUCIDE_VERSION)/dist/umd/lucide.min.js" -o "$(JS_DIR)/lucide.min.js"
 	@# marked 18 dropped the prebuilt marked.min.js; the UMD bundle is the browser entry point.
-	@curl -sfL "https://cdn.jsdelivr.net/npm/marked@$(MARKED_VERSION)/lib/marked.umd.js" -o "$(JS_DIR)/marked.min.js"
+	@curl -sfL "https://cdn.jsdelivr.net/npm/marked@$(MARKED_VERSION)/lib/marked.umd.js" -o "$(JS_DIR)/marked.umd.js"
 	@curl -sfL "https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@$(HIGHLIGHTJS_VERSION)/highlight.min.js" -o "$(JS_DIR)/highlight.min.js"
 	@curl -sfL "https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@$(HIGHLIGHTJS_VERSION)/styles/github-dark.min.css" -o "$(CSS_DIR)/github-dark.min.css"
 	@$(MAKE) --no-print-directory font FAMILY="Inter" SLUG=inter WEIGHTS="400;500;600;700"
 	@$(MAKE) --no-print-directory font FAMILY="Google+Sans" SLUG=google-sans WEIGHTS="400;500;700"
-	@$(MAKE) --no-print-directory nerdfont
+	@$(MAKE) --no-print-directory $(MONO)
+	@touch $(STAMP)
 	@echo "$(GREEN)Assets downloaded$(NC)"
 
 # One Google Fonts family: fetch the stylesheet, pull every woff2 it names, and
@@ -65,7 +74,10 @@ assets: ## Download pinned frontend assets (never committed)
 font:
 	@curl -sfL -H "User-Agent: $(UA)" \
 	  "https://fonts.googleapis.com/css2?family=$(FAMILY):wght@$(WEIGHTS)&display=swap" \
-	  -o "$(CSS_DIR)/$(SLUG).css"
+	  -o "$(CSS_DIR)/$(SLUG).raw"
+	@awk '/^\/\* /{keep = ($$0 ~ /^\/\* latin(-ext)? \*\/$$/)} keep' \
+	  "$(CSS_DIR)/$(SLUG).raw" > "$(CSS_DIR)/$(SLUG).css"
+	@rm -f "$(CSS_DIR)/$(SLUG).raw"
 	@grep -o 'https://fonts.gstatic.com/[^)]*' "$(CSS_DIR)/$(SLUG).css" | sort -u | while read -r url; do \
 	  curl -sfL "$$url" -o "$(FONTS_DIR)/$$(basename "$$url")"; \
 	done
@@ -81,8 +93,8 @@ nerdfont:
 	unzip -q -j "$$tmp/JetBrainsMono.zip" \
 	  JetBrainsMonoNerdFontMono-Regular.ttf JetBrainsMonoNerdFontMono-Bold.ttf -d "$$tmp"; \
 	for w in Regular Bold; do \
-	  $(UVX) --from "fonttools[woff]" fonttools ttLib.woff2 compress \
-	    -o "$(FONTS_DIR)/JetBrainsMonoNerdFontMono-$$w.woff2" "$$tmp/JetBrainsMonoNerdFontMono-$$w.ttf"; \
+	  $(UVX) -q --from "fonttools[woff]" fonttools ttLib.woff2 compress \
+	    -o "$(FONTS_DIR)/JetBrainsMonoNerdFontMono-$$w.woff2" "$$tmp/JetBrainsMonoNerdFontMono-$$w.ttf" >/dev/null 2>&1; \
 	done
 	@{ \
 	  for pair in 400:Regular 700:Bold; do \
@@ -92,10 +104,10 @@ nerdfont:
 	} > "$(CSS_DIR)/jetbrains-mono.css"
 
 verify-assets: ## Fail early if the embedded tree is missing an asset
-	@test -f $(JS_DIR)/tailwind.js || (echo "tailwind.js missing, run 'make assets'" && exit 1)
-	@test -f $(CSS_DIR)/inter.css || (echo "inter.css missing, run 'make assets'" && exit 1)
-	@test -f $(CSS_DIR)/google-sans.css || (echo "google-sans.css missing, run 'make assets'" && exit 1)
-	@test -f $(CSS_DIR)/jetbrains-mono.css || (echo "jetbrains-mono.css missing, run 'make assets'" && exit 1)
+	@test -s $(JS_DIR)/tailwind.js || (echo "tailwind.js missing, run 'make assets'" && exit 1)
+	@test -s $(CSS_DIR)/inter.css || (echo "inter.css missing, run 'make assets'" && exit 1)
+	@test -s $(CSS_DIR)/google-sans.css || (echo "google-sans.css missing, run 'make assets'" && exit 1)
+	@test -s $(CSS_DIR)/jetbrains-mono.css || (echo "jetbrains-mono.css missing, run 'make assets'" && exit 1)
 	@echo "$(GREEN)Assets verified$(NC)"
 
 # =============================================================================
@@ -125,7 +137,7 @@ lint: ## Lint the Python sources
 # =============================================================================
 # The task virtualenvs are left alone: rebuilding them costs several GB of downloads.
 clean: ## Remove built binaries, downloaded assets and Python caches
-	@rm -f $(APP_NAME) $(APP_NAME)-*
+	@rm -f $(APP_NAME) $(APP_NAME)-* $(STAMP)
 	@rm -rf $(JS_DIR) $(CSS_DIR) $(FONTS_DIR)
 	@find $(SCRIPTS_DIR) -name __pycache__ -type d -not -path '*/.venv/*' -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(GREEN)Cleaned$(NC)"
@@ -140,6 +152,9 @@ build-for: verify-assets ## Build for a specific GOOS/GOARCH
 	  -ldflags="-s -w -X '$(MODULE)/cmd.AppVersion=$(VERSION)'" \
 	  -o $(APP_NAME)-$(GOOS)-$(GOARCH) .
 	@echo "$(GREEN)Built: ./$(APP_NAME)-$(GOOS)-$(GOARCH)$(NC)"
+
+build-all: assets verify-assets ## Build the release binary
+	@$(MAKE) build-for GOOS=darwin GOARCH=arm64
 
 run: build ## Build and serve on 127.0.0.1:7777
 	@./$(APP_NAME) serve

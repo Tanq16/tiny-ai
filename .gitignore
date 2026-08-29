@@ -24,6 +24,7 @@ __pycache__/
 /internal/server/static/js/
 /internal/server/static/fonts/
 /internal/server/static/fontawesome/
+/internal/server/.assets-stamp
 
 # macOS and editors
 .DS_Store
