@@ -1,6 +1,3 @@
-// Package catalog declares the tasks the suite can run and the parameters each one accepts.
-// It is the single description the API, the frontend form, and the argv builder all read from,
-// so adding a task is one entry here plus one Python script.
 package catalog
 
 import (
@@ -25,20 +22,18 @@ type Option struct {
 }
 
 type Param struct {
-	Name     string    `json:"name"`
-	Label    string    `json:"label"`
-	Type     ParamType `json:"type"`
-	Required bool      `json:"required,omitempty"`
-	Default  string    `json:"default,omitempty"`
-	Help     string    `json:"help,omitempty"`
-	Options  []Option  `json:"options,omitempty"`
-	Accept   string    `json:"accept,omitempty"`
-	// Widget names a purpose-built frontend control, leaving the wire type of the parameter as declared.
-	Widget string  `json:"widget,omitempty"`
-	Min    float64 `json:"min,omitempty"`
-	Max    float64 `json:"max,omitempty"`
-	Step   float64 `json:"step,omitempty"`
-	// VisibleWhen names another parameter and the value it must hold for this one to apply.
+	Name        string     `json:"name"`
+	Label       string     `json:"label"`
+	Type        ParamType  `json:"type"`
+	Required    bool       `json:"required,omitempty"`
+	Default     string     `json:"default,omitempty"`
+	Help        string     `json:"help,omitempty"`
+	Options     []Option   `json:"options,omitzero"`
+	Accept      string     `json:"accept,omitempty"`
+	Widget      string     `json:"widget,omitempty"`
+	Min         float64    `json:"min,omitempty"`
+	Max         float64    `json:"max,omitempty"`
+	Step        float64    `json:"step,omitempty"`
 	VisibleWhen *Condition `json:"visibleWhen,omitempty"`
 }
 
@@ -59,7 +54,6 @@ type Task struct {
 	Params      []Param `json:"params"`
 }
 
-// Param returns the named parameter, reporting whether the task declares it.
 func (t Task) Param(name string) (Param, bool) {
 	i := slices.IndexFunc(t.Params, func(p Param) bool { return p.Name == name })
 	if i < 0 {
@@ -68,10 +62,8 @@ func (t Task) Param(name string) (Param, bool) {
 	return t.Params[i], true
 }
 
-// All returns every task in display order.
 func All() []Task { return slices.Clone(tasks) }
 
-// Get resolves a task by its ID.
 func Get(id string) (Task, error) {
 	i := slices.IndexFunc(tasks, func(t Task) bool { return t.ID == id })
 	if i < 0 {
@@ -80,7 +72,6 @@ func Get(id string) (Task, error) {
 	return tasks[i], nil
 }
 
-// Groups returns the distinct task groups in display order.
 func Groups() []string {
 	var groups []string
 	for _, t := range tasks {

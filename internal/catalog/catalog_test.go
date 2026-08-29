@@ -93,8 +93,6 @@ func checkParam(t *testing.T, task Task, p Param) {
 	}
 }
 
-// The runner invokes a task as `uv run --project ai-scripts/<project> <project>`, so both the
-// project and an entry point named after it have to exist before anyone submits the task.
 func TestEveryTaskProjectIsRunnable(t *testing.T) {
 	root := filepath.Join("..", "..", "ai-scripts")
 	for _, task := range All() {
@@ -111,8 +109,6 @@ func TestEveryTaskProjectIsRunnable(t *testing.T) {
 	}
 }
 
-// A widget names a control the frontend registers. An unregistered name is not an error the form
-// reports: it silently renders the plain control for the parameter's type instead.
 func TestEveryWidgetIsRegistered(t *testing.T) {
 	module, err := os.ReadFile(filepath.Join("..", "server", "static", "widgets.js"))
 	if err != nil {

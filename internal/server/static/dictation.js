@@ -4,8 +4,6 @@
     const TinyAI = (window.TinyAI = window.TinyAI || {});
     const { escapeHtml, copyText } = TinyAI;
 
-    // An LCS table is quadratic, so a long dictation with a heavy rewrite falls back to
-    // reporting the changed span wholesale rather than stalling the page.
     const MAX_CELLS = 4_000_000;
 
     function words(text) {
@@ -81,7 +79,6 @@
         ];
     }
 
-    // The plain word-diff markers git itself emits, so a pasted diff reads the same anywhere.
     const MARKERS = { del: ['[-', '-]'], ins: ['{+', '+}'], same: ['', ''] };
 
     function diffPatch(runs) {
@@ -152,7 +149,7 @@
         host.innerHTML = `
             <div class="space-y-3">
                 <div data-tabs class="flex flex-wrap gap-1.5">${tabs.map((tab) => tabButton(tab, tab.id === current)).join('')}</div>
-                <div data-pane class="max-h-96 overflow-auto rounded-lg bg-crust p-3"></div>
+                <div data-pane class="max-h-96 overflow-auto rounded-lg bg-base p-3"></div>
                 <button type="button" data-copy
                         class="inline-flex items-center gap-1.5 rounded-lg bg-surface0/70 px-3 py-1.5 text-xs text-subtext1 hover:bg-surface1 hover:text-mauve">
                     <i data-lucide="copy" class="h-3.5 w-3.5"></i>

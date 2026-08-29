@@ -63,7 +63,6 @@ func truthy(v string) bool {
 	return err == nil && b
 }
 
-// parseLine degrades anything it does not recognize into a log event, so a stray library print never fails the job.
 func parseLine(line string) (Event, bool) {
 	if strings.TrimSpace(line) == "" {
 		return Event{}, false
@@ -229,6 +228,9 @@ func (rec *record) pumpStderr(stderr io.Reader, sink io.Writer) {
 		line := scanner.Text()
 		fmt.Fprintln(sink, line)
 		rec.publish(Event{Event: EventLog, Level: "warn", Message: line})
+	}
+	if err := scanner.Err(); err != nil {
+		rec.publish(Event{Event: EventLog, Level: "warn", Message: "stderr closed early: " + err.Error()})
 	}
 }
 

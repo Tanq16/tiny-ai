@@ -1,4 +1,3 @@
-// Package server exposes the job runner over HTTP and serves the embedded frontend.
 package server
 
 import (
@@ -7,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/Tanq16/tiny-ai/internal/runner"
+	"github.com/rs/zerolog/log"
 )
 
 //go:embed all:static
@@ -59,9 +58,8 @@ func (s *Server) Setup() error {
 	return nil
 }
 
-// Run serves until ctx is done, then unwinds in-flight requests so streaming clients release the listener.
 func (s *Server) Run(ctx context.Context) error {
-	baseCtx, cancelBase := context.WithCancel(context.Background())
+	baseCtx, cancelBase := context.WithCancel(ctx)
 	defer cancelBase()
 
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
@@ -73,7 +71,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()
-	log.Printf("INFO Listening on http://%s", addr)
+	log.Info().Str("url", "http://"+addr).Msg("listening")
 
 	select {
 	case err := <-errCh:
@@ -82,7 +80,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		return err
 	case <-ctx.Done():
-		log.Printf("INFO Shutting down")
+		log.Info().Msg("shutting down")
 		cancelBase()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 		defer cancel()

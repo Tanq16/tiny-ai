@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"maps"
 	"mime"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"github.com/Tanq16/tiny-ai/internal/catalog"
 	"github.com/Tanq16/tiny-ai/internal/lexicon"
 	"github.com/Tanq16/tiny-ai/internal/runner"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -28,7 +28,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("ERROR Failed to write response: %v", err)
+		log.Error().Err(err).Msg("failed to write response")
 	}
 }
 
@@ -88,7 +88,7 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		}
 		f, err := headers[0].Open()
 		if err != nil {
-			log.Printf("ERROR Failed to read upload %q: %v", name, err)
+			log.Error().Err(err).Str("field", name).Msg("failed to read upload")
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("could not read the upload for %q", name))
 			return
 		}
@@ -109,10 +109,10 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, invalid.Error())
 			return
 		}
-		log.Printf("ERROR Failed to queue a %s job: %v", taskID, err)
+		log.Error().Err(err).Str("task", taskID).Msg("failed to queue job")
 		writeError(w, http.StatusInternalServerError, "could not queue the job")
 	default:
-		log.Printf("INFO Queued job %s for task %s", job.ID, job.Task)
+		log.Info().Str("job", job.ID).Str("task", job.Task).Msg("queued job")
 		writeJSON(w, http.StatusCreated, job)
 	}
 }
@@ -134,10 +134,10 @@ func (s *Server) handleCancelJob(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, runner.ErrJobFinished):
 		writeError(w, http.StatusConflict, err.Error())
 	case err != nil:
-		log.Printf("ERROR Failed to cancel job %s: %v", id, err)
+		log.Error().Err(err).Str("job", id).Msg("failed to cancel job")
 		writeError(w, http.StatusInternalServerError, "could not cancel the job")
 	default:
-		log.Printf("INFO Canceled job %s", id)
+		log.Info().Str("job", id).Msg("canceled job")
 		writeJSON(w, http.StatusAccepted, map[string]string{"status": "canceling"})
 	}
 }
@@ -148,7 +148,7 @@ func (s *Server) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, runner.ErrJobNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
 	case err != nil:
-		log.Printf("ERROR Failed to delete job %s: %v", id, err)
+		log.Error().Err(err).Str("job", id).Msg("failed to delete job")
 		writeError(w, http.StatusInternalServerError, "could not delete the job")
 	default:
 		w.WriteHeader(http.StatusNoContent)
@@ -203,7 +203,7 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		for _, header := range r.MultipartForm.File[field] {
 			f, err := header.Open()
 			if err != nil {
-				log.Printf("ERROR Failed to read chat attachment %q: %v", header.Filename, err)
+				log.Error().Err(err).Str("filename", header.Filename).Msg("failed to read chat attachment")
 				writeError(w, http.StatusBadRequest, fmt.Sprintf("could not read the attachment %q", header.Filename))
 				return
 			}
@@ -227,7 +227,7 @@ func (s *Server) handleFinishChat(w http.ResponseWriter, r *http.Request) {
 		writeChatError(w, id, "finish", err)
 		return
 	}
-	log.Printf("INFO Finished chat %s", id)
+	log.Info().Str("job", id).Msg("finished chat")
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "finishing"})
 }
 
@@ -244,7 +244,7 @@ func writeChatError(w http.ResponseWriter, id, action string, err error) {
 			writeError(w, http.StatusBadRequest, invalid.Error())
 			return
 		}
-		log.Printf("ERROR Failed to %s chat %s: %v", action, id, err)
+		log.Error().Err(err).Str("job", id).Str("action", action).Msg("failed chat action")
 		writeError(w, http.StatusInternalServerError, "could not "+action+" the chat")
 	}
 }
@@ -311,7 +311,7 @@ func writeSSE(w io.Writer, e runner.Event) error {
 func (s *Server) handleGetLexicon(w http.ResponseWriter, r *http.Request) {
 	lex, err := lexicon.Load(lexicon.Path(s.dataDir))
 	if err != nil {
-		log.Printf("ERROR Failed to read the lexicon: %v", err)
+		log.Error().Err(err).Msg("failed to read the lexicon")
 		writeError(w, http.StatusInternalServerError, "could not read the lexicon")
 		return
 	}
@@ -326,7 +326,7 @@ func (s *Server) handlePutLexicon(w http.ResponseWriter, r *http.Request) {
 	}
 	lex = lex.Normalize()
 	if err := lexicon.Save(lexicon.Path(s.dataDir), lex); err != nil {
-		log.Printf("ERROR Failed to write the lexicon: %v", err)
+		log.Error().Err(err).Msg("failed to write the lexicon")
 		writeError(w, http.StatusInternalServerError, "could not save the lexicon")
 		return
 	}

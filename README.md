@@ -2,6 +2,7 @@
   <img src="internal/server/static/icons/logo.png" alt="Tiny AI Suite Logo" width="140">
   <h1>Tiny AI Suite</h1>
 
+  <a href="https://github.com/Tanq16/tiny-ai/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/Tanq16/tiny-ai/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/tiny-ai/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tanq16/tiny-ai"></a><br><br>
   <a href="#capabilities">Capabilities</a> &bull; <a href="#install">Install</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#notes">Notes</a>
 </div>
 
@@ -50,7 +51,7 @@ Every task is reachable three ways: the web UI, the HTTP API, and the script on 
 
 ## Install
 
-Apple Silicon only. Needs Go 1.26+, [uv](https://docs.astral.sh/uv/), and ffmpeg.
+Apple Silicon only. Needs Go 1.27+, [uv](https://docs.astral.sh/uv/), and ffmpeg.
 
 ```bash
 git clone https://github.com/Tanq16/tiny-ai && cd tiny-ai
@@ -103,7 +104,8 @@ Each task is its own uv project with its own lockfile and virtualenv, sharing on
 | `--port` | `7777` | Port |
 | `--data` | `./data` | Where uploads, outputs and job history live |
 | `--scripts` | `./ai-scripts` | Directory holding the task projects |
-| `--jobs` | `1` | Concurrent jobs |
+| `--jobs` | `1` | Concurrent jobs, at least 1 |
+| `--debug` | off | Debug-level logging |
 
 ### API
 

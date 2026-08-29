@@ -39,7 +39,7 @@
                     </a>
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
-                            <h1 class="font-display text-xl font-semibold">${escapeHtml(job.title || job.task)}</h1>
+                            <h1 class="font-display text-xl font-semibold text-text">${escapeHtml(job.title || job.task)}</h1>
                             <span data-pill class="inline-flex items-center gap-1.5 rounded-full bg-${meta.color}/15 px-2.5 py-0.5 text-xs font-medium text-${meta.color}">
                                 <i data-lucide="${meta.icon}" class="h-3.5 w-3.5"></i>
                                 <span data-pill-label>${escapeHtml(meta.label)}</span>
@@ -104,7 +104,7 @@
                     <div data-result class="rounded-xl bg-mantle p-4"></div>
                 </div>
 
-                <div class="overflow-hidden rounded-xl bg-crust">
+                <div class="overflow-hidden rounded-xl bg-base">
                     <div class="flex items-center justify-between bg-mantle px-4 py-2.5">
                         <h2 class="font-display text-sm font-semibold text-subtext1">Log</h2>
                         <label class="flex items-center gap-2 text-xs text-overlay1">
@@ -193,7 +193,7 @@
             const rendered = document.createElement('div');
             rendered.className = 'markdown-body max-h-[32rem] overflow-y-auto pr-1';
             const source = document.createElement('pre');
-            source.className = 'hidden max-h-[32rem] overflow-auto rounded-lg bg-crust p-3 font-mono text-xs text-subtext0 whitespace-pre-wrap';
+            source.className = 'hidden max-h-[32rem] overflow-auto rounded-lg bg-base p-3 font-mono text-xs text-subtext0 whitespace-pre-wrap';
             source.textContent = text;
             body.replaceChildren(rendered, source);
             TinyAI.renderMarkdown(rendered, text);
@@ -218,7 +218,7 @@
                 highlighted = null;
             }
         }
-        body.innerHTML = `<pre class="max-h-[28rem] overflow-auto rounded-lg bg-crust p-3 font-mono text-xs leading-relaxed text-subtext0 whitespace-pre-wrap"><code class="hljs bg-transparent p-0">${
+        body.innerHTML = `<pre class="max-h-[28rem] overflow-auto rounded-lg bg-base p-3 font-mono text-xs leading-relaxed text-subtext0 whitespace-pre-wrap"><code class="hljs bg-transparent p-0">${
             highlighted || escapeHtml(display)
         }</code></pre>`;
     }
@@ -236,8 +236,8 @@
                         <img data-cmp-before src="${escapeHtml(inlineURL(beforeURL))}" alt="${escapeHtml(before.label || 'Before')}"
                              class="absolute inset-0 h-full w-full object-fill" style="clip-path: inset(0 50% 0 0)">
                         <div data-cmp-line class="pointer-events-none absolute inset-y-0 w-0.5 bg-mauve" style="left:50%"></div>
-                        <span class="absolute left-2 top-2 rounded bg-crust/80 px-2 py-0.5 text-[11px] text-subtext0">${escapeHtml(before.label || 'Before')}</span>
-                        <span class="absolute right-2 top-2 rounded bg-crust/80 px-2 py-0.5 text-[11px] text-subtext0">${escapeHtml(after.label || 'After')}</span>
+                        <span class="absolute left-2 top-2 rounded bg-base/80 px-2 py-0.5 text-[11px] text-subtext0">${escapeHtml(before.label || 'Before')}</span>
+                        <span class="absolute right-2 top-2 rounded bg-base/80 px-2 py-0.5 text-[11px] text-subtext0">${escapeHtml(after.label || 'After')}</span>
                     </div>
                     <input type="range" data-cmp-range min="0" max="100" value="50" class="mt-3">
                 </div>
@@ -415,7 +415,6 @@
         }
 
         function addArtifact(artifact) {
-            // The dictation pane already carries both transcripts, so its cards would only repeat them.
             if (view.job.task === 'dictate') return;
             const name = artifactName(artifact);
             if (view.artifacts.has(name)) return;
@@ -517,7 +516,6 @@
                 try {
                     applyEvent(JSON.parse(message.data));
                 } catch {
-                    // a malformed frame is skipped rather than tearing down the stream
                 }
             };
             source.onerror = () => {

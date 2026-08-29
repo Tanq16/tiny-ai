@@ -61,7 +61,7 @@ type Job struct {
 	Result          map[string]any    `json:"result"`
 	Error           string            `json:"error"`
 	DurationSeconds float64           `json:"durationSeconds"`
-	Events          []Event           `json:"events,omitempty"`
+	Events          []Event           `json:"events,omitzero"`
 }
 
 const (
@@ -99,7 +99,6 @@ type Event struct {
 	Files     []string       `json:"files,omitzero"`
 }
 
-// Subscription carries the replayed history and, while the job is still live, the stream that follows it.
 type Subscription struct {
 	Backlog []Event
 	Events  <-chan Event

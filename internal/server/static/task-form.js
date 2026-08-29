@@ -136,7 +136,7 @@
                     </div>
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
-                            <h1 class="font-display text-xl font-semibold">${escapeHtml(task.title)}</h1>
+                            <h1 class="font-display text-xl font-semibold text-text">${escapeHtml(task.title)}</h1>
                             <span class="rounded-full bg-surface0 px-2 py-0.5 font-mono text-[11px] text-subtext0">${escapeHtml(task.engine)}</span>
                         </div>
                         <p class="mt-1 text-sm text-subtext0">${escapeHtml(task.description)}</p>

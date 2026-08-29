@@ -1,5 +1,3 @@
-// Package runner executes the suite's Python scripts as child processes and turns their NDJSON
-// output into job state a browser can follow.
 package runner
 
 import (
@@ -28,7 +26,6 @@ var (
 	ErrQueueFull   = errors.New("job queue is full")
 )
 
-// ValidationError reports a submission the catalog rejects, which a caller turns into a 400.
 type ValidationError struct{ Msg string }
 
 func (e *ValidationError) Error() string { return e.Msg }
@@ -75,7 +72,6 @@ type Runner struct {
 	chatRec   *record
 }
 
-// New prepares the data directory and reloads the jobs already on disk.
 func New(cfg Config) (*Runner, error) {
 	dataDir, err := filepath.Abs(cfg.DataDir)
 	if err != nil {
@@ -115,7 +111,6 @@ func (r *Runner) Start() {
 	r.wg.Go(func() { r.worker(r.chatQueue) })
 }
 
-// Stop kills every running child and waits for the workers to unwind.
 func (r *Runner) Stop() {
 	r.cancel()
 	r.wg.Wait()
@@ -265,7 +260,6 @@ func (r *Runner) lookup(id string) (*record, bool) {
 	return rec, ok
 }
 
-// List returns every job newest first.
 func (r *Runner) List() []Job {
 	r.mu.RLock()
 	recs := make([]*record, 0, len(r.jobs))
@@ -325,7 +319,6 @@ func (r *Runner) Cancel(id string) error {
 	return nil
 }
 
-// Delete stops the job if it is still live and removes its directory along with its history.
 func (r *Runner) Delete(id string) error {
 	rec, ok := r.lookup(id)
 	if !ok {
@@ -345,7 +338,6 @@ func (r *Runner) Delete(id string) error {
 	return os.RemoveAll(rec.dir)
 }
 
-// ArtifactPath resolves a served artifact name inside the job's output directory, rejecting any escape.
 func (r *Runner) ArtifactPath(id, name string) (string, error) {
 	rec, ok := r.lookup(id)
 	if !ok {

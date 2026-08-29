@@ -1,5 +1,3 @@
-// Package lexicon stores the vocabulary and known mishearings that shape a dictation.
-// The recogniser is biased toward the vocabulary, and the polish pass reads both.
 package lexicon
 
 import (
@@ -22,7 +20,6 @@ type Lexicon struct {
 	Corrections []Correction `json:"corrections"`
 }
 
-// Load reads the lexicon, reporting a missing file as an empty one so a first run needs no setup.
 func Load(path string) (Lexicon, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -38,7 +35,6 @@ func Load(path string) (Lexicon, error) {
 	return lex.Normalize(), nil
 }
 
-// Save writes through a temporary file so an interrupted write cannot leave a truncated lexicon behind.
 func Save(path string, lex Lexicon) error {
 	data, err := json.MarshalIndent(lex.Normalize(), "", "  ")
 	if err != nil {
@@ -51,7 +47,6 @@ func Save(path string, lex Lexicon) error {
 	return os.Rename(tmp, path)
 }
 
-// Normalize trims every entry, drops the blanks, and keeps the first rule for any misheard phrase.
 func (l Lexicon) Normalize() Lexicon {
 	out := Lexicon{Vocabulary: []string{}, Corrections: []Correction{}}
 	for _, term := range l.Vocabulary {
@@ -73,5 +68,4 @@ func (l Lexicon) Normalize() Lexicon {
 	return out
 }
 
-// Path names the lexicon file inside a data directory.
 func Path(dataDir string) string { return filepath.Join(dataDir, "lexicon.json") }

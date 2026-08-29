@@ -24,8 +24,8 @@ type Message struct {
 
 type chatCommand struct {
 	Text   string   `json:"text"`
-	Images []string `json:"images,omitempty"`
-	Audio  []string `json:"audio,omitempty"`
+	Images []string `json:"images,omitzero"`
+	Audio  []string `json:"audio,omitzero"`
 }
 
 func attachmentKind(name string) string {
