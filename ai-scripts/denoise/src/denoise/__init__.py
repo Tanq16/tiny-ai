@@ -47,7 +47,8 @@ def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     config.set("DEVICE", device, str, "train")
     model = model.to(device)
 
-    audio, meta = load_audio(str(source), sr=df_state.sr())
+    with common.readable_audio(source) as readable:
+        audio, meta = load_audio(str(readable), sr=df_state.sr())
     seconds = audio.shape[-1] / df_state.sr()
     rep.log(f"{meta.num_channels} channels at {meta.sample_rate} Hz, {seconds:.1f}s")
 

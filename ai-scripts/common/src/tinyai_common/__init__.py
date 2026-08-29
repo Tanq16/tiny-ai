@@ -39,13 +39,17 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 ARTIFACT_KINDS = ("audio", "image", "text", "markdown", "json", "archive", "other")
+
+LIBSNDFILE_SUFFIXES = frozenset({".wav", ".flac", ".ogg", ".opus", ".mp3", ".aif", ".aiff", ".caf", ".au"})
 
 _MIME_BY_SUFFIX = {
     ".wav": "audio",
@@ -298,6 +302,33 @@ def encode_mp3(source: str | Path, target: str | Path, bitrate: str = "320k") ->
     cmd: Sequence[str] = [ffmpeg, "-y", "-loglevel", "error", "-i", str(source), "-b:a", bitrate, str(target)]
     subprocess.run(cmd, check=True)
     return Path(target).resolve()
+
+
+@contextmanager
+def readable_audio(source: str | Path) -> Iterator[Path]:
+    path = Path(source)
+    if path.suffix.lower() in LIBSNDFILE_SUFFIXES:
+        yield path.resolve()
+        return
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError(f"ffmpeg is required to read {path.suffix} audio but was not found on PATH")
+    with tempfile.TemporaryDirectory() as staging:
+        decoded = Path(staging) / f"{path.stem}.wav"
+        cmd: Sequence[str] = [
+            ffmpeg,
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            str(path),
+            "-vn",
+            "-c:a",
+            "pcm_f32le",
+            str(decoded),
+        ]
+        subprocess.run(cmd, check=True)
+        yield decoded
 
 
 def download(url: str, target: str | Path, reporter: Reporter | None = None, label: str = "") -> Path:
