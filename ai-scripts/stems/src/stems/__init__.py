@@ -14,106 +14,32 @@ import tinyai_common as common
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 SAMPLE_RATE = 44100
-OVERLAP = 4
-RELEASES = "https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/download"
-CONFIGS = "https://raw.githubusercontent.com/ZFTurbo/Music-Source-Separation-Training/v1.0.22/configs"
+MODEL_KIND = "bs_roformer"
+MODEL_HOST = "https://huggingface.co/lainlives/audio-separator-models/resolve/main"
+MODEL_CONFIG = f"{MODEL_HOST}/BS-Roformer-SW.yaml"
+MODEL_WEIGHTS = f"{MODEL_HOST}/BS-Roformer-SW.ckpt"
 STEM_LABELS = {"rest": "Everything else"}
 
 FOUR = ("drums", "bass", "other", "vocals")
 SIX = ("vocals", "drums", "bass", "guitar", "piano", "other")
-RHYTHM = ("drums", "bass", "vocals")
-
-
-@dataclass(frozen=True)
-class Demucs:
-    name: str
-
-
-@dataclass(frozen=True)
-class Msst:
-    kind: str
-    config: str
-    weights: str
-
-
-MODELS: dict[str, Demucs | Msst] = {
-    "htdemucs": Demucs("htdemucs"),
-    "htdemucs_ft": Demucs("htdemucs_ft"),
-    "htdemucs_6s": Demucs("htdemucs_6s"),
-    "scnet_xl": Msst(
-        "scnet",
-        f"{RELEASES}/v1.0.15/config_musdb18_scnet_xl_more_wide_v5.yaml",
-        f"{RELEASES}/v1.0.15/model_scnet_ep_36_sdr_10.0891.ckpt",
-    ),
-    "bs_roformer": Msst(
-        "bs_roformer",
-        f"{RELEASES}/v1.0.12/config_bs_roformer_384_8_2_485100.yaml",
-        f"{RELEASES}/v1.0.12/model_bs_roformer_ep_17_sdr_9.6568.ckpt",
-    ),
-    "melband_vocals": Msst(
-        "mel_band_roformer",
-        f"{CONFIGS}/KimberleyJensen/config_vocals_mel_band_roformer_kj.yaml",
-        "https://huggingface.co/KimberleyJSN/melbandroformer/resolve/main/MelBandRoformer.ckpt",
-    ),
-    "bs_roformer_vocals": Msst(
-        "bs_roformer",
-        f"{CONFIGS}/viperx/model_bs_roformer_ep_317_sdr_12.9755.yaml",
-        "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/"
-        "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
-    ),
-}
 
 
 @dataclass(frozen=True)
 class Preset:
-    sources: tuple[tuple[str, tuple[str, ...]], ...]
     outputs: tuple[str, ...]
-    residual: str = ""
+    residual: str
     tta: bool = False
 
 
 PRESETS: dict[str, Preset] = {
-    "four-fast": Preset((("htdemucs", FOUR),), FOUR),
-    "four-better": Preset((("scnet_xl", FOUR),), FOUR),
-    "four-best": Preset(
-        (("scnet_xl", FOUR), ("bs_roformer", FOUR), ("htdemucs_ft", FOUR)),
-        FOUR,
-        tta=True,
-    ),
-    "six-better": Preset((("htdemucs_6s", SIX),), SIX),
-    "six-best": Preset(
-        (
-            ("scnet_xl", RHYTHM),
-            ("bs_roformer", RHYTHM),
-            ("htdemucs_ft", RHYTHM),
-            ("htdemucs_6s", ("guitar", "piano")),
-        ),
-        SIX,
-        residual="other",
-        tta=True,
-    ),
-    "drums-fast": Preset(
-        (("scnet_xl", ("drums",)),), ("drums", "rest"), residual="rest"
-    ),
-    "drums-best": Preset(
-        (
-            ("scnet_xl", ("drums",)),
-            ("bs_roformer", ("drums",)),
-            ("htdemucs_ft", ("drums",)),
-        ),
-        ("drums", "rest"),
-        residual="rest",
-        tta=True,
-    ),
-    "vocals-fast": Preset(
-        (("melband_vocals", ("vocals",)),), ("vocals", "instrumental"), residual="instrumental"
-    ),
-    "vocals-best": Preset(
-        (("melband_vocals", ("vocals",)), ("bs_roformer_vocals", ("vocals",))),
-        ("vocals", "instrumental"),
-        residual="instrumental",
-        tta=True,
-    ),
+    "four-fast": Preset(FOUR, "other"),
+    "four-best": Preset(FOUR, "other", tta=True),
+    "six-fast": Preset(SIX, "other"),
+    "six-best": Preset(SIX, "other", tta=True),
+    "drums-fast": Preset(("drums", "rest"), "rest"),
+    "drums-best": Preset(("drums", "rest"), "rest", tta=True),
+    "vocals-fast": Preset(("vocals", "instrumental"), "instrumental"),
+    "vocals-best": Preset(("vocals", "instrumental"), "instrumental", tta=True),
 }
 
 
@@ -124,15 +50,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--preset",
         default="four-fast",
         choices=tuple(PRESETS),
-        help="model combination and the split it produces",
+        help="the split to produce and how much time to spend on it",
     )
     parser.add_argument("--format", default="wav", choices=("wav", "mp3"), help="stem file format")
-    parser.add_argument(
-        "--passes",
-        type=int,
-        default=1,
-        help="averaging passes over shifted copies that trade time for separation quality",
-    )
     return parser
 
 
@@ -195,88 +115,50 @@ def load_mix(source: Path) -> np.ndarray:
     return np.ascontiguousarray(audio, dtype=np.float32)
 
 
-def run_demucs(spec: Demucs, mix: np.ndarray, passes: int, device: str, tracker: Tracker) -> dict:
+def load_model(device: str, rep: common.Reporter):
     import torch
-    from demucs.api import Separator
-
-    def report(info: dict) -> None:
-        if info.get("state") != "end":
-            return
-        done = info["model_idx_in_bag"] * passes + info["shift_idx"]
-        within = info["segment_offset"] / max(info["audio_length"], 1)
-        tracker.at((done + within) / (info["models"] * passes))
-
-    separator = Separator(model=spec.name, device=device, shifts=passes, callback=report)
-    _, sources = separator.separate_tensor(torch.from_numpy(mix), SAMPLE_RATE)
-    return {name: wav.cpu().numpy().astype(np.float32) for name, wav in sources.items()}
-
-
-def run_msst(
-    key: str, spec: Msst, mix: np.ndarray, passes: int, tta: bool, device: str,
-    rep: common.Reporter, tracker: Tracker,
-) -> dict:
-    import torch
-    from utils.model_utils import apply_tta, bigshifts_wrapper
     from utils.settings import get_model_from_config
 
     store = common.cache_dir("stems")
-    config_path = common.download(spec.config, store / f"{key}.yaml", rep, label=f"{key} config")
-    weights_path = common.download(spec.weights, store / f"{key}.ckpt", rep, label=f"{key} weights")
+    config_path = common.download(MODEL_CONFIG, store / "bs_roformer_sw.yaml", rep, label="model config")
+    weights_path = common.download(MODEL_WEIGHTS, store / "bs_roformer_sw.ckpt", rep, label="model weights")
 
-    model, config = get_model_from_config(spec.kind, str(config_path))
+    model, config = get_model_from_config(MODEL_KIND, str(config_path))
     rate = int(config.audio.sample_rate)
     if rate != SAMPLE_RATE:
-        raise ValueError(f"{key} expects {rate} Hz, which this task does not resample to")
+        raise ValueError(f"the model expects {rate} Hz, which this task does not resample to")
     config.training.use_amp = False
-    config.inference.num_overlap = OVERLAP
 
     weights = torch.load(str(weights_path), map_location="cpu", weights_only=False)
     for wrapper in ("state", "state_dict", "model_state_dict"):
         if isinstance(weights, dict) and wrapper in weights:
             weights = weights[wrapper]
     model.load_state_dict(weights)
-    model = model.to(device).eval()
+    return model.to(device).eval(), config
 
-    sources = bigshifts_wrapper(
-        config, model, mix, device, model_type=spec.kind, pbar=True, bigshifts=passes
-    )
-    if tta:
-        sources = apply_tta(
-            config, model, mix, sources, device, spec.kind, bigshifts=passes, pbar=True
-        )
+
+def separate(preset: Preset, mix: np.ndarray, device: str, rep: common.Reporter, tracker: Tracker) -> dict:
+    from utils.model_utils import apply_tta, demix
+
+    model, config = load_model(device, rep)
+    tracker.phase("separating", 0.0, 1.0, 3 if preset.tta else 1)
+    produced = demix(config, model, mix, device, MODEL_KIND, pbar=True)
+    if preset.tta:
+        produced = apply_tta(config, model, mix, produced, device, MODEL_KIND, bigshifts=1, pbar=True)
     del model
-    return {name: np.asarray(wav, dtype=np.float32) for name, wav in sources.items()}
 
-
-def separate(
-    preset: Preset, mix: np.ndarray, passes: int, device: str, rep: common.Reporter, tracker: Tracker
-) -> dict:
-    gathered: dict[str, list[np.ndarray]] = {}
-    span = 1.0 / len(preset.sources)
-    for index, (key, wanted) in enumerate(preset.sources):
-        spec = MODELS[key]
-        slots = passes * (3 if preset.tta and isinstance(spec, Msst) else 1)
-        tracker.phase(f"separating with {key}", index * span, span, slots)
-        if isinstance(spec, Demucs):
-            produced = run_demucs(spec, mix, passes, device, tracker)
-        else:
-            produced = run_msst(key, spec, mix, passes, preset.tta, device, rep, tracker)
-        missing = [name for name in wanted if name not in produced]
-        if missing:
-            raise ValueError(f"{key} produced no {', '.join(missing)} stem")
-        for name in wanted:
-            gathered.setdefault(name, []).append(produced[name])
-
-    stems = {name: np.mean(takes, axis=0) for name, takes in gathered.items()}
-    if preset.residual:
-        others = [stems[name] for name in preset.outputs if name != preset.residual]
-        stems[preset.residual] = mix - np.sum(others, axis=0)
+    stems: dict[str, np.ndarray] = {}
+    for name in preset.outputs:
+        if name == preset.residual:
+            continue
+        if name not in produced:
+            raise ValueError(f"the model produced no {name} stem")
+        stems[name] = np.asarray(produced[name], dtype=np.float32)
+    stems[preset.residual] = mix - np.sum(list(stems.values()), axis=0)
     return {name: stems[name] for name in preset.outputs}
 
 
-def write_stems(
-    stems: dict, outdir: Path, base: str, fmt: str, rep: common.Reporter
-) -> list[Path]:
+def write_stems(stems: dict, outdir: Path, base: str, fmt: str, rep: common.Reporter) -> list[Path]:
     import soundfile as sf
 
     written = []
@@ -295,16 +177,14 @@ def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     outdir = common.ensure_outdir(args.outdir)
     device = common.resolve_device(args.device)
     preset = PRESETS[args.preset]
-    passes = max(args.passes, 1)
 
-    rep.start(device=device, preset=args.preset, format=args.format, passes=passes)
+    rep.start(device=device, preset=args.preset, format=args.format)
     tracker = Tracker(rep)
-    if any(isinstance(MODELS[key], Msst) for key, _ in preset.sources):
-        install_progress(tracker)
+    install_progress(tracker)
 
     rep.progress(None, "reading the track")
     mix = load_mix(source)
-    stems = separate(preset, mix, passes, device, rep, tracker)
+    stems = separate(preset, mix, device, rep, tracker)
 
     base = common.stem_of(source)
     rep.progress(1.0, f"writing {len(stems)} stems")

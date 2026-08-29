@@ -5,10 +5,9 @@ description = "Splits a track into instrument stems."
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "tinyai-common",
-    "demucs>=4.1.0",
     "numpy>=2",
     "torch>=2.6",
-    "music-source-separation-training[bs-roformer,mel-band-roformer,scnet]",
+    "music-source-separation-training[bs-roformer]",
 ]
 
 [project.scripts]
