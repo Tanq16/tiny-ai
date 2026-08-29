@@ -188,7 +188,8 @@ def install_progress(tracker: Tracker) -> None:
 def load_mix(source: Path) -> np.ndarray:
     import librosa
 
-    audio, _ = librosa.load(str(source), sr=SAMPLE_RATE, mono=False)
+    with common.readable_audio(source) as readable:
+        audio, _ = librosa.load(str(readable), sr=SAMPLE_RATE, mono=False)
     if audio.ndim == 1:
         audio = np.stack([audio, audio])
     return np.ascontiguousarray(audio, dtype=np.float32)
