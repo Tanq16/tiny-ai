@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Tanq16/tiny-ai/internal/catalog"
+	"github.com/Tanq16/tiny-ai/internal/loras"
 )
 
 var (
@@ -56,6 +58,7 @@ type Submission struct {
 type Runner struct {
 	scriptsDir string
 	jobsDir    string
+	lorasDir   string
 	workers    int
 
 	queue chan *record
@@ -85,11 +88,16 @@ func New(cfg Config) (*Runner, error) {
 	if err := os.MkdirAll(jobsDir, 0o755); err != nil {
 		return nil, err
 	}
+	lorasDir := loras.Dir(dataDir)
+	if err := os.MkdirAll(lorasDir, 0o755); err != nil {
+		return nil, err
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &Runner{
 		scriptsDir: scriptsDir,
 		jobsDir:    jobsDir,
+		lorasDir:   lorasDir,
 		workers:    max(cfg.Workers, 1),
 		queue:      make(chan *record, queueCapacity),
 		ctx:        ctx,
@@ -187,17 +195,18 @@ func (r *Runner) prepare(task catalog.Task, sub Submission) (*record, Job, error
 	for k, v := range sub.Values {
 		values[k] = v
 	}
-	files := make(map[string]string, len(sub.Files))
+	files := make(map[string][]string, len(sub.Files))
 	inputs := make([]Input, 0, len(sub.Files))
+	taken := make(map[string]struct{}, len(sub.Files))
 	for _, up := range sub.Files {
-		name := sanitizeFilename(up.Filename)
+		name := uniqueFilename(sanitizeFilename(up.Filename), taken)
 		dest := filepath.Join(inputDir, name)
 		size, err := saveUpload(dest, up.Content)
 		if err != nil {
 			os.RemoveAll(dir)
 			return nil, Job{}, err
 		}
-		files[up.Param] = dest
+		files[up.Param] = append(files[up.Param], dest)
 		inputs = append(inputs, Input{Param: up.Param, Filename: name, Bytes: size})
 	}
 	slices.SortFunc(inputs, func(a, b Input) int { return strings.Compare(a.Param, b.Param) })
@@ -236,6 +245,19 @@ func (r *Runner) prepare(task catalog.Task, sub Submission) (*record, Job, error
 	r.jobs[id] = rec
 	r.mu.Unlock()
 	return rec, snap, nil
+}
+
+func uniqueFilename(name string, taken map[string]struct{}) string {
+	candidate := name
+	extension := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, extension)
+	for i := 2; ; i++ {
+		if _, clash := taken[candidate]; !clash {
+			taken[candidate] = struct{}{}
+			return candidate
+		}
+		candidate = fmt.Sprintf("%s-%d%s", stem, i, extension)
+	}
 }
 
 func saveUpload(dest string, src io.Reader) (int64, error) {
@@ -366,16 +388,13 @@ func resolveUnder(dir, name string) (string, error) {
 	return full, nil
 }
 
-func (rec *record) submitted() (map[string]string, map[string]string) {
+func (rec *record) submitted() (map[string]string, map[string][]string) {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	values := make(map[string]string, len(rec.snap.Params))
-	for k, v := range rec.snap.Params {
-		values[k] = v
-	}
-	files := make(map[string]string, len(rec.files))
-	for k, v := range rec.files {
-		files[k] = v
+	values := maps.Clone(rec.snap.Params)
+	files := make(map[string][]string, len(rec.files))
+	for param, paths := range rec.files {
+		files[param] = slices.Clone(paths)
 	}
 	return values, files
 }

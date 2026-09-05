@@ -30,6 +30,7 @@ type Param struct {
 	Help        string     `json:"help,omitempty"`
 	Options     []Option   `json:"options,omitzero"`
 	Accept      string     `json:"accept,omitempty"`
+	Multiple    bool       `json:"multiple,omitempty"`
 	Widget      string     `json:"widget,omitempty"`
 	Min         float64    `json:"min,omitempty"`
 	Max         float64    `json:"max,omitempty"`

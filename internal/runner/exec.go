@@ -29,13 +29,13 @@ var scriptEvents = []string{
 	EventResult, EventDone, EventError, EventChat, EventDelta,
 }
 
-func buildArgs(task catalog.Task, projectDir, outDir string, values, files map[string]string) []string {
+func buildArgs(task catalog.Task, projectDir, outDir string, values map[string]string, files map[string][]string) []string {
 	args := []string{"run", "--project", projectDir, task.Project, "--json", "--outdir", outDir}
 	for _, p := range task.Params {
 		flag := "--" + p.Name
 		switch p.Type {
 		case catalog.ParamFile:
-			if path := files[p.Name]; path != "" {
+			for _, path := range files[p.Name] {
 				args = append(args, flag, path)
 			}
 		case catalog.ParamBool:
@@ -77,7 +77,7 @@ func parseLine(line string) (Event, bool) {
 	return e, true
 }
 
-func validate(task catalog.Task, values, files map[string]string) error {
+func validate(task catalog.Task, values map[string]string, files map[string][]string) error {
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		p, ok := task.Param(name)
 		if !ok {
@@ -95,13 +95,19 @@ func validate(task catalog.Task, values, files map[string]string) error {
 		if p.Type != catalog.ParamFile {
 			return &ValidationError{Msg: fmt.Sprintf("parameter %q is not a file", name)}
 		}
+		if !p.Multiple && len(files[name]) > 1 {
+			return &ValidationError{Msg: fmt.Sprintf("parameter %q takes one file", name)}
+		}
+		if limit := int(p.Max); p.Multiple && limit > 0 && len(files[name]) > limit {
+			return &ValidationError{Msg: fmt.Sprintf("parameter %q takes at most %d files", name, limit)}
+		}
 	}
 	for _, p := range task.Params {
 		if !p.Required {
 			continue
 		}
 		if p.Type == catalog.ParamFile {
-			if files[p.Name] == "" {
+			if len(files[p.Name]) == 0 {
 				return &ValidationError{Msg: fmt.Sprintf("parameter %q is required", p.Name)}
 			}
 			continue
@@ -145,7 +151,7 @@ func killGroup(pid int) error {
 	return nil
 }
 
-func (r *Runner) execute(rec *record, task catalog.Task, values, files map[string]string) {
+func (r *Runner) execute(rec *record, task catalog.Task, values map[string]string, files map[string][]string) {
 	rec.mu.Lock()
 	canceled := rec.canceled
 	rec.mu.Unlock()
@@ -161,6 +167,7 @@ func (r *Runner) execute(rec *record, task catalog.Task, values, files map[strin
 	cmd.Dir = r.scriptsDir
 	// An inherited VIRTUAL_ENV makes uv warn on every run, since each task targets its own project env.
 	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "VIRTUAL_ENV=") })
+	cmd.Env = append(cmd.Env, "LORA_LIBRARY_PATH="+r.lorasDir)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return killGroup(cmd.Process.Pid) }
 	cmd.WaitDelay = waitDelay

@@ -2,7 +2,7 @@
     'use strict';
 
     const TinyAI = (window.TinyAI = window.TinyAI || {});
-    const { escapeHtml, apiJSON, toast } = TinyAI;
+    const { escapeHtml, formatBytes, apiJSON, toast } = TinyAI;
 
     const CAPTURE_TYPES = [
         ['audio/webm;codecs=opus', 'webm'],
@@ -341,6 +341,146 @@
             .finally(paint);
     }
 
+    function loraHtml() {
+        return `
+            <div class="mt-2 space-y-3">
+                <input type="hidden" data-input="lora">
+                <div data-library class="space-y-1.5"></div>
+                <div class="flex items-center gap-2">
+                    <button type="button" data-add-lora class="${SOFT_BUTTON}">
+                        <i data-lucide="upload" class="h-4 w-4"></i>
+                        <span>Add a .safetensors file</span>
+                    </button>
+                    <input type="file" data-lora-file class="hidden" accept=".safetensors">
+                </div>
+                <input type="text" data-extra placeholder="Or a HuggingFace repo, like org/name:0.8" class="w-full ${TEXT_INPUT}">
+            </div>`;
+    }
+
+    function loraRowHtml(entry, picked, scale) {
+        const tone = picked ? 'bg-surface0 text-text' : 'bg-surface0/50 text-subtext1';
+        return `
+            <div class="flex items-center gap-2 rounded-lg ${tone} px-2.5 py-1.5 text-sm">
+                <button type="button" data-pick="${escapeHtml(entry.name)}" class="shrink-0 ${picked ? 'text-mauve' : 'text-overlay1 hover:text-mauve'}" title="Use this LoRA">
+                    <i data-lucide="${picked ? 'check-square' : 'square'}" class="h-4 w-4"></i>
+                </button>
+                <span class="min-w-0 flex-1 truncate font-mono">${escapeHtml(entry.name)}</span>
+                <input type="number" step="0.05" min="0" max="2" value="${escapeHtml(String(scale))}"
+                       data-scale="${escapeHtml(entry.name)}"
+                       class="w-16 shrink-0 rounded-md bg-surface0/70 px-1.5 py-1 text-right text-xs text-text focus:outline-none focus:ring-1 focus:ring-mauve/60">
+                <span class="shrink-0 text-xs text-overlay1">${escapeHtml(formatBytes(entry.bytes))}</span>
+                <button type="button" data-forget="${escapeHtml(entry.name)}" class="shrink-0 text-overlay1 hover:text-red" title="Delete from the library">
+                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                </button>
+            </div>`;
+    }
+
+    function wireLora(block) {
+        const library = block.querySelector('[data-library]');
+        const hidden = block.querySelector('[data-input="lora"]');
+        const extra = block.querySelector('[data-extra]');
+        const picker = block.querySelector('[data-lora-file]');
+        let entries = [];
+        const picked = new Map();
+
+        function compose() {
+            const parts = entries
+                .filter((entry) => picked.has(entry.name))
+                .map((entry) => {
+                    const scale = picked.get(entry.name);
+                    return scale === 1 ? entry.name : `${entry.name}:${scale}`;
+                });
+            extra.value
+                .split(',')
+                .map((part) => part.trim())
+                .filter(Boolean)
+                .forEach((part) => parts.push(part));
+            hidden.value = parts.join(',');
+        }
+
+        function paint() {
+            library.innerHTML = entries.length
+                ? entries
+                      .map((entry) => loraRowHtml(entry, picked.has(entry.name), picked.get(entry.name) ?? 1))
+                      .join('')
+                : '<span class="text-sm text-overlay0">The library is empty.</span>';
+            lucide.createIcons({ root: block });
+            compose();
+        }
+
+        async function load() {
+            try {
+                const data = await apiJSON('/api/loras');
+                entries = (data && data.loras) || [];
+            } catch (error) {
+                toast(`Could not read the LoRA library: ${error.message}`, 'error');
+            }
+            paint();
+        }
+
+        block.querySelector('[data-add-lora]').addEventListener('click', () => picker.click());
+        picker.addEventListener('change', async () => {
+            const file = picker.files[0];
+            picker.value = '';
+            if (!file) return;
+            const payload = new FormData();
+            payload.append('lora', file);
+            try {
+                await apiJSON('/api/loras', { method: 'POST', body: payload });
+            } catch (error) {
+                toast(`Could not add the LoRA: ${error.message}`, 'error');
+                return;
+            }
+            load();
+        });
+
+        block.addEventListener('click', async (event) => {
+            const pick = event.target.closest('[data-pick]');
+            if (pick) {
+                const name = pick.dataset.pick;
+                if (picked.has(name)) picked.delete(name);
+                else picked.set(name, 1);
+                paint();
+                return;
+            }
+            const forget = event.target.closest('[data-forget]');
+            if (!forget) return;
+            const name = forget.dataset.forget;
+            try {
+                await apiJSON(`/api/loras/${encodeURIComponent(name)}`, { method: 'DELETE' });
+            } catch (error) {
+                toast(`Could not delete ${name}: ${error.message}`, 'error');
+                return;
+            }
+            picked.delete(name);
+            load();
+        });
+
+        block.addEventListener('input', (event) => {
+            const scale = event.target.closest('[data-scale]');
+            if (scale) {
+                const value = Number(scale.value);
+                picked.set(scale.dataset.scale, Number.isFinite(value) ? value : 1);
+            }
+            compose();
+        });
+
+        // The widget sits inside the task form, where a bare Enter would submit the job instead.
+        extra.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') event.preventDefault();
+        });
+
+        block.closest('form').addEventListener('reset', () => {
+            setTimeout(() => {
+                picked.clear();
+                extra.value = '';
+                paint();
+            }, 0);
+        });
+
+        load();
+    }
+
     function seedHtml() {
         return `
             <div class="mt-2 space-y-2">
@@ -411,6 +551,7 @@
         record: { html: recordHtml, wire: wireRecord },
         capture: { html: captureHtml, wire: wireCapture },
         lexicon: { html: lexiconHtml, wire: wireLexicon },
+        lora: { html: loraHtml, wire: wireLora },
         seed: { html: seedHtml, wire: wireSeed },
     };
 })();

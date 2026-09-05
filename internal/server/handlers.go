@@ -15,6 +15,7 @@ import (
 
 	"github.com/Tanq16/tiny-ai/internal/catalog"
 	"github.com/Tanq16/tiny-ai/internal/lexicon"
+	"github.com/Tanq16/tiny-ai/internal/loras"
 	"github.com/Tanq16/tiny-ai/internal/runner"
 	"github.com/rs/zerolog/log"
 )
@@ -22,6 +23,7 @@ import (
 const (
 	maxFormMemory   = 32 << 20
 	maxLexiconBytes = 1 << 20
+	maxLoraBytes    = 2 << 30
 )
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -83,17 +85,16 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	for name, headers := range r.MultipartForm.File {
-		if len(headers) == 0 {
-			continue
+		for _, header := range headers {
+			f, err := header.Open()
+			if err != nil {
+				log.Error().Err(err).Str("field", name).Msg("failed to read upload")
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("could not read the upload for %q", name))
+				return
+			}
+			closers = append(closers, f)
+			uploads = append(uploads, runner.Upload{Param: name, Filename: header.Filename, Content: f})
 		}
-		f, err := headers[0].Open()
-		if err != nil {
-			log.Error().Err(err).Str("field", name).Msg("failed to read upload")
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("could not read the upload for %q", name))
-			return
-		}
-		closers = append(closers, f)
-		uploads = append(uploads, runner.Upload{Param: name, Filename: headers[0].Filename, Content: f})
 	}
 
 	job, err := s.runner.Submit(runner.Submission{TaskID: taskID, Values: values, Files: uploads})
@@ -331,4 +332,64 @@ func (s *Server) handlePutLexicon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, lex)
+}
+
+func (s *Server) handleListLoras(w http.ResponseWriter, r *http.Request) {
+	entries, err := loras.List(loras.Dir(s.dataDir))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to list the LoRA library")
+		writeError(w, http.StatusInternalServerError, "could not read the LoRA library")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"loras": entries})
+}
+
+func (s *Server) handleUploadLora(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoraBytes)
+	if err := r.ParseMultipartForm(maxFormMemory); err != nil {
+		writeError(w, http.StatusBadRequest, "expected a multipart/form-data submission")
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	headers := r.MultipartForm.File["lora"]
+	if len(headers) == 0 {
+		writeError(w, http.StatusBadRequest, "field \"lora\" is required")
+		return
+	}
+	file, err := headers[0].Open()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to read the uploaded LoRA")
+		writeError(w, http.StatusBadRequest, "could not read the uploaded file")
+		return
+	}
+	defer file.Close()
+
+	entry, err := loras.Save(loras.Dir(s.dataDir), headers[0].Filename, file)
+	if errors.Is(err, loras.ErrInvalidName) {
+		writeError(w, http.StatusBadRequest, "a LoRA has to be a .safetensors file with a usable name")
+		return
+	}
+	if err != nil {
+		log.Error().Err(err).Str("file", headers[0].Filename).Msg("failed to store the LoRA")
+		writeError(w, http.StatusInternalServerError, "could not store the LoRA")
+		return
+	}
+	writeJSON(w, http.StatusCreated, entry)
+}
+
+func (s *Server) handleDeleteLora(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	err := loras.Delete(loras.Dir(s.dataDir), name)
+	switch {
+	case errors.Is(err, loras.ErrNotFound):
+		writeError(w, http.StatusNotFound, fmt.Sprintf("no LoRA named %q", name))
+	case errors.Is(err, loras.ErrInvalidName):
+		writeError(w, http.StatusBadRequest, "that is not a usable LoRA name")
+	case err != nil:
+		log.Error().Err(err).Str("lora", name).Msg("failed to delete the LoRA")
+		writeError(w, http.StatusInternalServerError, "could not delete the LoRA")
+	default:
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }

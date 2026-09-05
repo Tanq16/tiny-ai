@@ -22,21 +22,37 @@
             .join(' · ');
     }
 
+    function fileLimit(param) {
+        if (!param.multiple) return 1;
+        return param.max > 0 ? Math.floor(param.max) : 4;
+    }
+
     function fileControl(param) {
+        const limit = fileLimit(param);
+        const prompt =
+            limit === 1
+                ? 'Drop a file here or <span class="text-mauve font-medium">browse</span>'
+                : `Drop up to ${limit} files here or <span class="text-mauve font-medium">browse</span>`;
         return `
             <div data-dropzone
                  class="mt-2 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-surface1 bg-mantle/60 px-4 py-7 text-center cursor-pointer transition-colors hover:border-mauve hover:bg-surface0/40">
                 <i data-lucide="upload-cloud" class="w-7 h-7 text-overlay1"></i>
-                <p class="text-sm text-subtext0">Drop a file here or <span class="text-mauve font-medium">browse</span></p>
+                <p class="text-sm text-subtext0">${prompt}</p>
                 <p class="text-[11px] text-overlay0 break-all">${escapeHtml(acceptSummary(param.accept))}</p>
                 <input type="file" class="hidden" data-input="${escapeHtml(param.name)}"
+                       ${limit > 1 ? 'multiple' : ''}
                        ${param.accept ? `accept="${escapeHtml(param.accept)}"` : ''}>
             </div>
-            <div data-chosen class="mt-2 hidden items-center gap-3 rounded-lg bg-surface0/50 px-3 py-2">
+            <div data-chosen-list class="mt-2 space-y-2"></div>`;
+    }
+
+    function chosenRowHtml(file, index) {
+        return `
+            <div class="flex items-center gap-3 rounded-lg bg-surface0/50 px-3 py-2">
                 <i data-lucide="file" class="w-4 h-4 text-mauve shrink-0"></i>
-                <span data-chosen-name class="flex-1 min-w-0 truncate text-sm text-text"></span>
-                <span data-chosen-size class="text-xs text-overlay1 shrink-0"></span>
-                <button type="button" data-clear class="text-overlay1 hover:text-red shrink-0" title="Remove file">
+                <span class="flex-1 min-w-0 truncate text-sm text-text">${escapeHtml(file.name)}</span>
+                <span class="text-xs text-overlay1 shrink-0">${escapeHtml(formatBytes(file.size))}</span>
+                <button type="button" data-drop-file="${index}" class="text-overlay1 hover:text-red shrink-0" title="Remove file">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>`;
@@ -169,7 +185,7 @@
         }
 
         function valueOf(param) {
-            if (param.type === 'file') return files.has(param.name) ? files.get(param.name).name : '';
+            if (param.type === 'file') return (files.get(param.name) || []).map((f) => f.name).join(', ');
             const control = controlOf(param.name);
             if (!control) return '';
             if (param.type === 'bool') return control.checked ? 'true' : 'false';
@@ -200,24 +216,25 @@
                 });
         }
 
-        function showFile(param, file) {
+        function showFiles(param, chosen) {
             const block = form.querySelector(`[data-param="${CSS.escape(param.name)}"]`);
-            const chosen = block.querySelector('[data-chosen]');
+            const list = block.querySelector('[data-chosen-list]');
             const zone = block.querySelector('[data-dropzone]');
-            if (!file) {
-                files.delete(param.name);
-                controlOf(param.name).value = '';
-                chosen.classList.add('hidden');
-                chosen.classList.remove('flex');
-                zone.classList.remove('hidden');
-                return;
-            }
-            files.set(param.name, file);
-            block.querySelector('[data-chosen-name]').textContent = file.name;
-            block.querySelector('[data-chosen-size]').textContent = formatBytes(file.size);
-            chosen.classList.remove('hidden');
-            chosen.classList.add('flex');
-            zone.classList.add('hidden');
+            const limit = fileLimit(param);
+            const kept = chosen.slice(0, limit);
+
+            if (kept.length) files.set(param.name, kept);
+            else files.delete(param.name);
+            controlOf(param.name).value = '';
+
+            list.innerHTML = kept.map(chosenRowHtml).join('');
+            zone.classList.toggle('hidden', kept.length >= limit);
+            lucide.createIcons({ root: block });
+        }
+
+        function addFiles(param, incoming) {
+            const kept = files.get(param.name) || [];
+            showFiles(param, kept.concat(Array.from(incoming)));
         }
 
         (task.params || [])
@@ -225,8 +242,8 @@
             .forEach((param) => {
                 const block = form.querySelector(`[data-param="${CSS.escape(param.name)}"]`);
                 TinyAI.widgets[param.widget].wire(block, (file) => {
-                    if (file) files.set(param.name, file);
-                    else files.delete(param.name);
+                    if (!file) files.delete(param.name);
+                    else files.set(param.name, Array.isArray(file) ? file : [file]);
                 });
             });
 
@@ -238,8 +255,14 @@
                 const input = controlOf(param.name);
 
                 zone.addEventListener('click', () => input.click());
-                input.addEventListener('change', () => showFile(param, input.files[0] || null));
-                block.querySelector('[data-clear]').addEventListener('click', () => showFile(param, null));
+                input.addEventListener('change', () => addFiles(param, input.files));
+                block.addEventListener('click', (event) => {
+                    const drop = event.target.closest('[data-drop-file]');
+                    if (!drop) return;
+                    const kept = (files.get(param.name) || []).slice();
+                    kept.splice(Number(drop.dataset.dropFile), 1);
+                    showFiles(param, kept);
+                });
 
                 ['dragenter', 'dragover'].forEach((name) =>
                     zone.addEventListener(name, (event) => {
@@ -254,8 +277,8 @@
                     }),
                 );
                 zone.addEventListener('drop', (event) => {
-                    const file = event.dataTransfer && event.dataTransfer.files[0];
-                    if (file) showFile(param, file);
+                    const dropped = event.dataTransfer && event.dataTransfer.files;
+                    if (dropped && dropped.length) addFiles(param, dropped);
                 });
             });
 
@@ -268,7 +291,7 @@
             setTimeout(() => {
                 (task.params || [])
                     .filter((param) => param.type === 'file' && !param.widget)
-                    .forEach((param) => showFile(param, null));
+                    .forEach((param) => showFiles(param, []));
                 syncNumbers();
                 applyVisibility();
             }, 0);
@@ -296,7 +319,7 @@
                     continue;
                 }
                 if (param.type === 'file') {
-                    if (files.has(param.name)) payload.append(param.name, files.get(param.name));
+                    (files.get(param.name) || []).forEach((file) => payload.append(param.name, file));
                     continue;
                 }
                 if (param.type === 'text' || param.type === 'textarea') {

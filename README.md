@@ -25,7 +25,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 | Small Model Chat | Gemma 4, E2B to 31B | Metal (MLX) | a conversation over text, pictures and voice, kept as one job you can reopen |
 | Document to Markdown | Marker | Metal (torch MPS) | Markdown, HTML or JSON, with tables, LaTeX and extracted images |
 | Image OCR | Surya | Metal (torch MPS) | reading-order text, tables as Markdown and CSV, annotated preview |
-| Image Generation | Z-Image Turbo, FLUX.2 Klein, Qwen-Image | Metal (MLX) | one png from a written prompt, on a seed you can hold and reuse |
+| Image Generation | FLUX.2 Klein, 4B to 9B | Metal (MLX) | png from a written prompt, from reference pictures, or both, on a seed you can hold and reuse |
 | Image Upscaler | Real-ESRGAN via spandrel | Metal (torch MPS) | upscaled png with the original alongside |
 
 Every task is reachable three ways: the web UI, the HTTP API, and the script on its own from a terminal.
@@ -79,7 +79,8 @@ uv run --project ai-scripts/transcribe transcribe --input talk.opus --outdir out
 uv run --project ai-scripts/dictate dictate --input note.m4a --lexicon data/lexicon.json --outdir out
 uv run --project ai-scripts/stems stems --input song.mp3 --preset drums-best --format mp3 --outdir out
 uv run --project ai-scripts/tts tts --text "Ready when you are." --voice bf_emma --outdir out
-uv run --project ai-scripts/imagegen imagegen --prompt "a red fox in fresh snow" --seed 42 --outdir out
+uv run --project ai-scripts/imagegen imagegen --prompt "a red fox in fresh snow" --seed 42 --variants 3 --outdir out
+uv run --project ai-scripts/imagegen imagegen --prompt "a finished oil painting of this scene" --reference sketch.png --size match --outdir out
 echo '{"text":"hello"}' | uv run --project ai-scripts/chat chat --model mlx-community/gemma-4-e4b-it-4bit --outdir out
 cd ai-scripts/doc2md && uv run doc2md --input paper.pdf --pages 1-10 --outdir out
 ```
@@ -138,9 +139,11 @@ curl -X POST localhost:7777/api/jobs/$ID/finish   # closes the chat and writes t
 - **Recording needs an HTTPS address.** Browsers only open the microphone in a secure context, so the recorders in Dictation, Voice Cloning and Small Model Chat are dead on a plain `http://` LAN address. Put a TLS-terminating proxy in front, or use those tasks from the machine the server runs on.
 - **Dictation is two passes.** Qwen3-ASR writes the transcript with the vocabulary biasing its decoder, then Gemma rewrites it into clean prose using the vocabulary and the correction list. The job page shows one pane with diff, raw and polished tabs, and copies whichever tab is open.
 - **Loopback by default.** The server executes local scripts and has no authentication, so binding it to `0.0.0.0` hands anyone on the network a shell-adjacent surface.
-- **Image models are ungated by choice.** Every option downloads without a HuggingFace account, which rules out FLUX.1-dev and Krea 2 despite their quality.
-- **Image weights are large.** The default 4-bit Z-Image Turbo is a 6 GB download, the 8-bit variant 33 GB, and Qwen-Image 58 GB.
-- **LoRAs are named, not uploaded.** A HuggingFace repo id or a local `.safetensors` path, several separated by commas, each optionally suffixed with `:0.5` to set its strength.
+- **A reference picture sets the layout, the prompt sets the subject.** Up to four go in at once. A rough sketch is followed closely enough that crude shapes need naming, or a triangle meant as a pine comes back as a tent.
+- **Image models are ungated.** Every option downloads without a HuggingFace account, which rules out FLUX.1-dev, Kontext, Redux and Krea 2 despite their quality. The 9B entries carry the FLUX Non-Commercial Licence even though the weights come from an open mirror.
+- **Image weights are large.** The 4-bit Klein 4B is a 4.6 GB download, the recommended 8-bit 15 GB, the base 4B 8.6 GB and either 9B 18 GB.
+- **Klein base models are the slow tier.** They run 50 steps against the distilled 4, and take a real guidance scale that the distilled ones reject.
+- **LoRAs live in `data/loras/`.** The form uploads into it and the runner exports it as `LORA_LIBRARY_PATH`, so a bare name resolves. A HuggingFace repo id or a `.safetensors` path still works, several separated by commas, each optionally suffixed with `:0.5` to set its strength.
 - **Voice cloning cuts a long reference.** F5-TTS conditions on the reference clip and the new speech as one sequence, so anything past 15 seconds is dropped and the transcript is taken from what remains. A longer clip left whole comes back as babble.
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.
 - **Job history survives a restart.** State lives under `data/jobs/<id>/`; a job that was running when the server died is marked failed on reload, because its process is gone.
