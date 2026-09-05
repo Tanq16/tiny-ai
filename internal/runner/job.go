@@ -118,7 +118,7 @@ type record struct {
 	dir       string
 	inDir     string
 	outDir    string
-	files     map[string]string
+	files     map[string][]string
 	startWall time.Time
 	cancel    func()
 	canceled  bool

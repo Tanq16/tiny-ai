@@ -30,7 +30,7 @@ func TestBuildArgs(t *testing.T) {
 		name   string
 		task   catalog.Task
 		values map[string]string
-		files  map[string]string
+		files  map[string][]string
 		want   []string
 	}{
 		{
@@ -39,7 +39,7 @@ func TestBuildArgs(t *testing.T) {
 			values: map[string]string{
 				"format": "mp3", "preset": "four-best",
 			},
-			files: map[string]string{"input": "/jobs/j1/input/song.mp3"},
+			files: map[string][]string{"input": {"/jobs/j1/input/song.mp3"}},
 			want: []string{
 				"run", "--project", "/scripts/stems", "stems", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/jobs/j1/input/song.mp3", "--preset", "four-best",
@@ -50,7 +50,7 @@ func TestBuildArgs(t *testing.T) {
 			name:   "false bool is omitted entirely",
 			task:   transcribe,
 			values: map[string]string{"word-timestamps": "false", "task": "translate"},
-			files:  map[string]string{"input": "/in.wav"},
+			files:  map[string][]string{"input": {"/in.wav"}},
 			want: []string{
 				"run", "--project", "/scripts/transcribe", "transcribe", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/in.wav", "--task", "translate",
@@ -60,7 +60,7 @@ func TestBuildArgs(t *testing.T) {
 			name:   "checkbox on is truthy",
 			task:   transcribe,
 			values: map[string]string{"word-timestamps": "on"},
-			files:  map[string]string{"input": "/in.wav"},
+			files:  map[string][]string{"input": {"/in.wav"}},
 			want: []string{
 				"run", "--project", "/scripts/transcribe", "transcribe", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/in.wav", "--word-timestamps",
@@ -70,7 +70,7 @@ func TestBuildArgs(t *testing.T) {
 			name:   "a bool defaulting on is switched off with the negated flag",
 			task:   ocr,
 			values: map[string]string{"tables": "false", "annotate": "true"},
-			files:  map[string]string{"input": "/receipt.png"},
+			files:  map[string][]string{"input": {"/receipt.png"}},
 			want: []string{
 				"run", "--project", "/scripts/ocr", "ocr", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/receipt.png", "--no-tables", "--annotate",
@@ -79,7 +79,7 @@ func TestBuildArgs(t *testing.T) {
 		{
 			name:  "an unsubmitted bool defaulting on is negated too, since a browser omits an unchecked box",
 			task:  ocr,
-			files: map[string]string{"input": "/receipt.png"},
+			files: map[string][]string{"input": {"/receipt.png"}},
 			want: []string{
 				"run", "--project", "/scripts/ocr", "ocr", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/receipt.png", "--no-tables", "--no-annotate",
@@ -89,7 +89,7 @@ func TestBuildArgs(t *testing.T) {
 			name:   "empty text values are dropped",
 			task:   transcribe,
 			values: map[string]string{"language": "", "task": "translate"},
-			files:  map[string]string{"input": "/clip.m4a"},
+			files:  map[string][]string{"input": {"/clip.m4a"}},
 			want: []string{
 				"run", "--project", "/scripts/transcribe", "transcribe", "--json", "--outdir", "/jobs/j1/output",
 				"--input", "/clip.m4a", "--task", "translate",
@@ -195,17 +195,17 @@ func TestValidate(t *testing.T) {
 		name    string
 		task    catalog.Task
 		values  map[string]string
-		files   map[string]string
+		files   map[string][]string
 		wantErr string
 	}{
-		{"complete submission", stems, map[string]string{"preset": "four-fast"}, map[string]string{"input": "/a.wav"}, ""},
-		{"unknown parameter", stems, map[string]string{"nope": "1"}, map[string]string{"input": "/a.wav"}, `task "stems" has no parameter "nope"`},
+		{"complete submission", stems, map[string]string{"preset": "four-fast"}, map[string][]string{"input": {"/a.wav"}}, ""},
+		{"unknown parameter", stems, map[string]string{"nope": "1"}, map[string][]string{"input": {"/a.wav"}}, `task "stems" has no parameter "nope"`},
 		{"missing required file", stems, map[string]string{"preset": "four-fast"}, nil, `parameter "input" is required`},
 		{"missing required text", tts, map[string]string{"voice": "af_heart"}, nil, `parameter "text" is required`},
 		{"whitespace does not satisfy required text", tts, map[string]string{"text": "   "}, nil, `parameter "text" is required`},
 		{"file param sent as text", stems, map[string]string{"input": "/a.wav"}, nil, `parameter "input" must be sent as a file`},
-		{"text param sent as a file", tts, map[string]string{"text": "hi"}, map[string]string{"voice": "/a.wav"}, `parameter "voice" is not a file`},
-		{"unknown file parameter", stems, nil, map[string]string{"input": "/a.wav", "extra": "/b.wav"}, `task "stems" has no parameter "extra"`},
+		{"text param sent as a file", tts, map[string]string{"text": "hi"}, map[string][]string{"voice": {"/a.wav"}}, `parameter "voice" is not a file`},
+		{"unknown file parameter", stems, nil, map[string][]string{"input": {"/a.wav"}, "extra": {"/b.wav"}}, `task "stems" has no parameter "extra"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
