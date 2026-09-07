@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="internal/server/static/icons/logo.png" alt="Tiny AI Suite Logo" width="140">
+  <img src=".github/assets/logo.svg" alt="Tiny AI Suite Logo" width="140">
   <h1>Tiny AI Suite</h1>
 
   <a href="https://github.com/Tanq16/tiny-ai/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/Tanq16/tiny-ai/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/tiny-ai/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tanq16/tiny-ai"></a><br><br>
