@@ -117,11 +117,13 @@ py-lock: ## Re-resolve every task project's lockfile
 	@for p in $(PROJECTS); do \
 	  echo "$(CYAN)locking $$p$(NC)"; uv lock --project "$(SCRIPTS_DIR)/$$p"; \
 	done
+	@echo "$(CYAN)locking episode-vtt$(NC)"; uv lock --project scripts
 
 py-sync: ## Pre-install every task environment so a first run does not stall
 	@for p in $(PROJECTS); do \
 	  echo "$(CYAN)syncing $$p$(NC)"; uv sync --project "$(SCRIPTS_DIR)/$$p"; \
 	done
+	@echo "$(CYAN)syncing episode-vtt$(NC)"; uv sync --project scripts
 	@echo "$(GREEN)Task environments ready$(NC)"
 
 voices: ## Render the built-in voice cloning reference clips
@@ -129,8 +131,8 @@ voices: ## Render the built-in voice cloning reference clips
 	@echo "$(GREEN)Reference clips written to $(SCRIPTS_DIR)/voiceclone/voices$(NC)"
 
 lint: ## Lint the Python sources
-	@uv run ruff check $(SCRIPTS_DIR)
-	@uv run ruff format --check $(SCRIPTS_DIR)
+	@uv run ruff check $(SCRIPTS_DIR) scripts
+	@uv run ruff format --check $(SCRIPTS_DIR) scripts
 
 # =============================================================================
 # Build
@@ -139,7 +141,7 @@ lint: ## Lint the Python sources
 clean: ## Remove built binaries, downloaded assets and Python caches
 	@rm -f $(APP_NAME) $(APP_NAME)-* $(STAMP)
 	@rm -rf $(JS_DIR) $(CSS_DIR) $(FONTS_DIR)
-	@find $(SCRIPTS_DIR) -name __pycache__ -type d -not -path '*/.venv/*' -exec rm -rf {} + 2>/dev/null || true
+	@find $(SCRIPTS_DIR) scripts -name __pycache__ -type d -not -path '*/.venv/*' -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(GREEN)Cleaned$(NC)"
 
 build: assets verify-assets ## Build for the current platform
