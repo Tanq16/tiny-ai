@@ -1,0 +1,11 @@
+{
+  "vocabulary": [
+    "Jon Snow",
+    "Daenerys Targaryen",
+    "Winterfell"
+  ],
+  "corrections": [
+    {"from": "John Snow", "to": "Jon Snow"},
+    {"from": "Danny", "to": "Dany"}
+  ]
+}

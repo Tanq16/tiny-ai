@@ -83,6 +83,7 @@ uv run --project ai-scripts/imagegen imagegen --prompt "a red fox in fresh snow"
 uv run --project ai-scripts/imagegen imagegen --prompt "a finished oil painting of this scene" --reference sketch.png --size match --outdir out
 echo '{"text":"hello"}' | uv run --project ai-scripts/chat chat --model mlx-community/gemma-4-e4b-it-4bit --outdir out
 cd ai-scripts/doc2md && uv run doc2md --input paper.pdf --pages 1-10 --outdir out
+uv run --project scripts episode-vtt S01E01.mkv --glossary-file glossary.json
 ```
 
 ### Layout
@@ -149,3 +150,4 @@ curl -X POST localhost:7777/api/jobs/$ID/finish   # closes the chat and writes t
 - **Job history survives a restart.** State lives under `data/jobs/<id>/`; a job that was running when the server died is marked failed on reload, because its process is gone.
 - **No Docker.** Metal is unreachable from a Linux container on macOS, which would drop every task to CPU.
 - **Adding a task** is one entry in `internal/catalog/tasks.go` and one uv project whose entry point is named after it. The form, the API and the argv are generated from the catalog entry, and the event protocol is documented at the top of `ai-scripts/common/src/tinyai_common/__init__.py`.
+- **scripts/** holds useful one-shot AI tools that are not suite tasks. `episode-vtt` writes `audio.wav` in the current directory and a sibling `.vtt` next to the episode.
