@@ -117,9 +117,12 @@ def on_progress(event: dict) -> None:
 def run(args: argparse.Namespace) -> None:
     source = require_file(args.input, "input")
     vocabulary, corrections = load_glossary(args.glossary_file)
-    audio = Path.cwd() / AUDIO_NAME
-    print(f"extracting audio to {audio}", file=sys.stderr)
-    extract_audio(source, audio)
+    if source.suffix.lower() == ".wav":
+        audio = source
+    else:
+        audio = Path.cwd() / f"{source.stem}.wav"
+        print(f"extracting audio to {audio}", file=sys.stderr)
+        extract_audio(source, audio)
 
     from mlx_qwen3_asr import transcribe
     from mlx_qwen3_asr.writers import write_vtt
@@ -142,6 +145,10 @@ def run(args: argparse.Namespace) -> None:
 
     vtt = source.with_suffix(".vtt")
     write_vtt(result, str(vtt))
+    content = vtt.read_text(encoding="utf-8")
+    corrected = apply_corrections(content, corrections)
+    if corrected != content:
+        vtt.write_text(corrected, encoding="utf-8")
     print(vtt)
 
 
