@@ -220,7 +220,7 @@ var tasks = []Task{
 		Title:       "Image Generation",
 		Group:       "Images",
 		Description: "Draw an image from a written description, on its own or from pictures you supply.",
-		Engine:      "FLUX.2 Klein",
+		Engine:      "FLUX.2 Klein + Qwen-Image",
 		Icon:        "wand-sparkles",
 		Project:     "imagegen",
 		Params: []Param{
@@ -236,7 +236,10 @@ var tasks = []Task{
 				{Value: "klein-9b", Label: "Klein 9B, 8-bit (sharper, 4 steps, 18 GB download)"},
 				{Value: "klein-base-4b", Label: "Klein base 4B (slow and best, 50 steps, 8.6 GB download)"},
 				{Value: "klein-base-9b", Label: "Klein base 9B (slowest and best, 50 steps, 18 GB download)"},
-			}},
+				{Value: "qwen-image", Label: "Qwen-Image 4-bit (long prompts and text, 20 steps, 28 GB download)"},
+			}, Help: "Qwen takes two transformer passes per step against Klein's one, so it follows a long " +
+				"prompt more closely and runs in minutes rather than seconds. Reference pictures load a " +
+				"checkpoint of its own, a further 29 GB."},
 			{Name: "size", Label: "Size", Type: ParamSelect, Default: "1024x1024", Options: []Option{
 				{Value: "1024x1024", Label: "Square 1024 x 1024"},
 				{Value: "1280x720", Label: "Landscape 1280 x 720"},
