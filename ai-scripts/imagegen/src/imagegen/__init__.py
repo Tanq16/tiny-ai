@@ -1,4 +1,4 @@
-"""Generates images from a prompt, and optionally from reference pictures, with FLUX.2 Klein."""
+"""Generates images from a prompt, and optionally from reference pictures, with FLUX.2 Klein or Qwen-Image."""
 
 from __future__ import annotations
 
@@ -19,23 +19,30 @@ MAX_REFERENCES = 4
 
 
 class Recipe(NamedTuple):
+    family: str
     config: str
     steps: int
     guidance: float
     quantize: int | None = 8
     path: str | None = None
+    edit: Recipe | None = None
 
+
+QWEN_EDIT = Recipe("qwen", "qwen_image_edit", 20, 2.5, None, "mflux-community/qwen-image-edit-2509-mflux-q4")
 
 # Distilled Klein checkpoints reject any guidance but 1.0; only the base ones take a scale.
 MODELS = {
-    "klein-4b": Recipe("flux2_klein_4b", 4, 1.0),
-    "klein-4b-4bit": Recipe("flux2_klein_4b", 4, 1.0, None, "Runpod/FLUX.2-klein-4B-mflux-4bit"),
-    "klein-9b": Recipe("flux2_klein_9b", 4, 1.0, None, "mflux-community/flux2-klein-9b-mflux-q8"),
+    "klein-4b": Recipe("flux2", "flux2_klein_4b", 4, 1.0),
+    "klein-4b-4bit": Recipe("flux2", "flux2_klein_4b", 4, 1.0, None, "Runpod/FLUX.2-klein-4B-mflux-4bit"),
+    "klein-9b": Recipe("flux2", "flux2_klein_9b", 4, 1.0, None, "mflux-community/flux2-klein-9b-mflux-q8"),
     "klein-base-4b": Recipe(
-        "flux2_klein_base_4b", 50, 3.5, None, "mflux-community/flux-2-klein-base-4b-mflux-q8"
+        "flux2", "flux2_klein_base_4b", 50, 3.5, None, "mflux-community/flux-2-klein-base-4b-mflux-q8"
     ),
     "klein-base-9b": Recipe(
-        "flux2_klein_base_9b", 50, 3.5, None, "mflux-community/flux-2-klein-base-9b-mflux-q8"
+        "flux2", "flux2_klein_base_9b", 50, 3.5, None, "mflux-community/flux-2-klein-base-9b-mflux-q8"
+    ),
+    "qwen-image": Recipe(
+        "qwen", "qwen_image", 20, 3.5, None, "mflux-community/qwen-image-2512-mflux-q4", QWEN_EDIT
     ),
 }
 
@@ -109,9 +116,16 @@ def parse_loras(spec: str) -> tuple[list[str], list[float]]:
 
 def load_model(recipe: Recipe, editing: bool, lora_paths: list[str], lora_scales: list[float]):
     from mflux.models.common.config import ModelConfig
-    from mflux.models.flux2.variants import Flux2Klein, Flux2KleinEdit
 
-    generator = Flux2KleinEdit if editing else Flux2Klein
+    if recipe.family == "qwen":
+        from mflux.models.qwen.variants.edit import QwenImageEdit
+        from mflux.models.qwen.variants.txt2img.qwen_image import QwenImage
+
+        generator = QwenImageEdit if editing else QwenImage
+    else:
+        from mflux.models.flux2.variants import Flux2Klein, Flux2KleinEdit
+
+        generator = Flux2KleinEdit if editing else Flux2Klein
     # mflux narrates weight loading on stdout, which would corrupt the NDJSON stream.
     with contextlib.redirect_stdout(sys.stderr):
         return generator(
@@ -131,6 +145,8 @@ def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     references = [str(common.require_file(path, "reference")) for path in args.reference]
 
     recipe = MODELS[args.model]
+    if references and recipe.edit is not None:
+        recipe = recipe.edit
     width, height = parse_size(args.size, references)
     steps = args.steps if args.steps > 0 else recipe.steps
     variants = max(args.variants, 1)
@@ -196,7 +212,7 @@ def run(args: argparse.Namespace, rep: common.Reporter) -> None:
     rep.done()
 
 
-parser = common.base_parser("imagegen", "Generate images with a local FLUX.2 Klein model.")
+parser = common.base_parser("imagegen", "Generate images with a local FLUX.2 Klein or Qwen-Image model.")
 parser.add_argument("--prompt", required=True, help="what to draw")
 parser.add_argument("--model", default="klein-4b", choices=tuple(MODELS), help="model to generate with")
 parser.add_argument(

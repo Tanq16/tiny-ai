@@ -1,7 +1,7 @@
 [project]
 name = "imagegen"
 version = "0.1.0"
-description = "Generates images from a prompt and optional reference pictures with FLUX.2 Klein through mflux."
+description = "Generates images from a prompt and optional reference pictures with FLUX.2 Klein or Qwen-Image through mflux."
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "tinyai-common",

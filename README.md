@@ -25,7 +25,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 | Small Model Chat | Gemma 4, E2B to 31B | Metal (MLX) | a conversation over text, pictures and voice, kept as one job you can reopen |
 | Document to Markdown | Marker | Metal (torch MPS) | Markdown, HTML or JSON, with tables, LaTeX and extracted images |
 | Image OCR | Surya | Metal (torch MPS) | reading-order text, tables as Markdown and CSV, annotated preview |
-| Image Generation | FLUX.2 Klein, 4B to 9B | Metal (MLX) | png from a written prompt, from reference pictures, or both, on a seed you can hold and reuse |
+| Image Generation | FLUX.2 Klein 4B to 9B, Qwen-Image | Metal (MLX) | png from a written prompt, from reference pictures, or both, on a seed you can hold and reuse |
 | Image Upscaler | Real-ESRGAN via spandrel | Metal (torch MPS) | upscaled png with the original alongside |
 
 Every task is reachable three ways: the web UI, the HTTP API, and the script on its own from a terminal.
@@ -142,8 +142,10 @@ curl -X POST localhost:7777/api/jobs/$ID/finish   # closes the chat and writes t
 - **Loopback by default.** The server executes local scripts and has no authentication, so binding it to `0.0.0.0` hands anyone on the network a shell-adjacent surface.
 - **A reference picture sets the layout, the prompt sets the subject.** Up to four go in at once. A rough sketch is followed closely enough that crude shapes need naming, or a triangle meant as a pine comes back as a tent.
 - **Image models are ungated.** Every option downloads without a HuggingFace account, which rules out FLUX.1-dev, Kontext, Redux and Krea 2 despite their quality. The 9B entries carry the FLUX Non-Commercial Licence even though the weights come from an open mirror.
-- **Image weights are large.** The 4-bit Klein 4B is a 4.6 GB download, the recommended 8-bit 15 GB, the base 4B 8.6 GB and either 9B 18 GB.
+- **Image weights are large.** The 4-bit Klein 4B is a 4.6 GB download, the recommended 8-bit 15 GB, the base 4B 8.6 GB and either 9B 18 GB. Qwen-Image is 28 GB, and its reference checkpoint another 29 GB.
 - **Klein base models are the slow tier.** They run 50 steps against the distilled 4, and take a real guidance scale that the distilled ones reject.
+- **Qwen-Image is the literal tier.** It takes two transformer passes per step where Klein takes one, so it follows a long description more closely and finishes in minutes rather than seconds.
+- **Qwen edits through separate weights.** Picking it with reference pictures loads Qwen-Image-Edit rather than Qwen-Image, so the first such run downloads a second checkpoint. Klein reuses one set of weights for both.
 - **LoRAs live in `data/loras/`.** The form uploads into it and the runner exports it as `LORA_LIBRARY_PATH`, so a bare name resolves. A HuggingFace repo id or a `.safetensors` path still works, several separated by commas, each optionally suffixed with `:0.5` to set its strength.
 - **Voice cloning cuts a long reference.** F5-TTS conditions on the reference clip and the new speech as one sequence, so anything past 15 seconds is dropped and the transcript is taken from what remains. A longer clip left whole comes back as babble.
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.
