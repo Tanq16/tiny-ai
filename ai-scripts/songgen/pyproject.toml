@@ -1,0 +1,29 @@
+[project]
+name = "songgen"
+version = "0.1.0"
+description = "Generates a full song with vocals from a style prompt and lyrics with YuE2 or ACE-Step 1.5."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "tinyai-common",
+    "yue2-infer",
+    "ace-step",
+    "soundfile>=0.13.1",
+]
+
+[project.scripts]
+songgen = "songgen:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinyai-common = { path = "../common", editable = true }
+yue2-infer = { git = "https://github.com/multimodal-art-projection/YuE", rev = "yue2-v0.1.6" }
+ace-step = { git = "https://github.com/ace-step/ACE-Step-1.5", rev = "ca1e85fe9430179831e6bc6be790c332190a3866" }
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+# torch over YuE2's torch==2.10.0 pin: pytorch/pytorch#195910 leaks future keys from a
+# bf16 causal SDPA on MPS through 2.12.1, and ace-step's setuptools<72 blocks torch 2.13+.
+override-dependencies = ["torch>=2.13", "setuptools>=80"]

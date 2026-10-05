@@ -75,6 +75,43 @@ var tasks = []Task{
 		},
 	},
 	{
+		ID:          "songgen",
+		Title:       "Song Generation",
+		Group:       "Audio",
+		Description: "Write a full song with vocals and accompaniment from a style prompt and your own lyrics.",
+		Engine:      "YuE2-3B + ACE-Step 1.5",
+		Icon:        "music-4",
+		Project:     "songgen",
+		Params: []Param{
+			{Name: "style", Label: "Style", Type: ParamTextarea, Required: true,
+				Help: "Language, genre, voice, instruments and tempo, as a comma separated list. " +
+					"For example: English, warm piano pop, expressive female voice, rounded bass " +
+					"and light drums, unhurried phrasing, 88 BPM."},
+			{Name: "lyrics", Label: "Lyrics", Type: ParamTextarea, Required: true,
+				Help: "Mark the sections with [Verse], [Chorus] and [Bridge] on their own lines. " +
+					"The structure steers the arrangement as much as the words do."},
+			{Name: "model", Label: "Model", Type: ParamSelect, Default: "yue2", Options: []Option{
+				{Value: "yue2", Label: "YuE2 3B (best quality, 32 steps, 7.8 GB download)"},
+				{Value: "ace-turbo", Label: "ACE-Step 1.5 turbo (fastest, 8 steps, 10 GB download)"},
+				{Value: "ace-base", Label: "ACE-Step 1.5 base (sharper, 32 steps, a further 4.8 GB)"},
+			}, Help: "YuE2 writes a melody and chord score first and then renders it, which is where its " +
+				"quality comes from, and it keeps the score alongside the audio. ACE-Step runs in a " +
+				"fraction of the time and is the only one of the two that takes a target length."},
+			{Name: "duration", Label: "Target length", Type: ParamNumber, Default: "0",
+				Min: 0, Max: 600, Step: 10,
+				Help: "In seconds, between 10 and 600. 0 lets the model choose. ACE-Step only: YuE2 has " +
+					"no length field and stops at 6 minutes."},
+			{Name: "seed", Label: "Seed", Type: ParamText, Widget: "seed",
+				Help: "The same seed, style and lyrics reproduce the same song. Empty draws a new one every run."},
+			{Name: "steps", Label: "Steps", Type: ParamNumber, Default: "0", Min: 0, Max: 100, Step: 1,
+				Help: "0 uses the step count the chosen model was built for."},
+			{Name: "format", Label: "Output format", Type: ParamSelect, Default: "flac", Options: []Option{
+				{Value: "flac", Label: "FLAC, 24-bit"},
+				{Value: "mp3", Label: "MP3 320k"},
+			}},
+		},
+	},
+	{
 		ID:          "dictate",
 		Title:       "Dictation",
 		Group:       "Speech",

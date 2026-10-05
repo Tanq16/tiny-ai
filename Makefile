@@ -28,7 +28,7 @@ STAMP      := internal/server/.assets-stamp
 MONO := $(if $(filter 1,$(NERDFONT)),nerdfont,font FAMILY="JetBrains+Mono" SLUG=jetbrains-mono WEIGHTS="400;700")
 
 SCRIPTS_DIR := ai-scripts
-PROJECTS    := stems denoise transcribe dictate tts voiceclone chat doc2md ocr imagegen upscale
+PROJECTS    := stems denoise transcribe songgen dictate tts voiceclone chat doc2md ocr imagegen upscale
 
 # Google Fonts serves woff2 only to a browser-shaped User-Agent; an unrecognized
 # one gets ttf, which is roughly twice the bytes.
