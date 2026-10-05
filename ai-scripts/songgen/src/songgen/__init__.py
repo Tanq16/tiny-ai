@@ -5,20 +5,34 @@ import contextlib
 import os
 import secrets
 import sys
+import threading
+import time
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, NamedTuple, TextIO
+from typing import Any, NamedTuple
 
 import tinyai_common as common
 
 SEED_LIMIT = 2**32
 SAMPLE_RATE = 48000
 SEMANTIC_FRAME_RATE = 25
-ABC_TOKEN_STRIDE = 64
 YUE_MODEL = "m-a-p/YuE2-3B"
 YUE_VAE = "m-a-p/YuE2-Vae"
 ACE_MAIN_DIT = "acestep-v15-turbo"
 MIN_DURATION = 10
 MAX_DURATION = 600
+PROGRESS_SECONDS = 0.5
+HEARTBEAT_SECONDS = 20.0
+PULSE_SECONDS = 1.0
+
+YUE_STAGES = {
+    "Loading model": ("loading the model", "", 1),
+    "Planning score": ("planning the score", "tokens", 1),
+    "Generating song": ("composing the song", "seconds of audio", SEMANTIC_FRAME_RATE),
+    "Synthesizing audio": ("rendering the audio", "solver steps", 1),
+    "Loading audio decoder": ("loading the audio decoder", "", 1),
+    "Decoding audio": ("decoding the audio", "chunks", 1),
+}
 
 
 class Recipe(NamedTuple):
@@ -42,41 +56,112 @@ MODELS = {
 }
 
 
-class Relay:
-    def __init__(self, rep: common.Reporter, stream: TextIO) -> None:
-        self.rep = rep
-        self.stream = stream
-
-    def progress(self, fraction: float | None, message: str = "", **counts: int | None) -> None:
-        # Both engines run with stdout redirected away, so aim the event at the real stream.
-        with contextlib.redirect_stdout(self.stream):
-            self.rep.progress(fraction, message, **counts)
-
-    def log(self, message: str) -> None:
-        with contextlib.redirect_stdout(self.stream):
-            self.rep.log(message)
-
-    def ace(self, value: float, desc: str = "") -> None:
-        self.progress(float(value), desc)
-
-
-class TokenStage:
-    def __init__(self, relay: Relay, stride: int, total: int, render) -> None:
-        self.relay = relay
-        self.stride = stride
-        self.total = total
-        self.render = render
-        self.count = 0
-
-    def __call__(self, _phase: str, _token: int) -> None:
-        self.count += 1
-        if self.count % self.stride == 0:
-            self.relay.progress(None, self.render(self.count), current=self.count, total=self.total)
-
-
 def clock(seconds: float) -> str:
     whole = int(seconds)
     return f"{whole // 60}:{whole % 60:02d}"
+
+
+class Relay:
+    def __init__(self, rep: common.Reporter) -> None:
+        self.rep = rep
+        self.lock = threading.Lock()
+        self.stopped = threading.Event()
+        self.pulse = threading.Thread(target=self._pulse, daemon=True)
+        self.label = ""
+        self.unit = ""
+        self.done = 0
+        self.total: int | None = None
+        self.entered = 0.0
+        self.sent = 0.0
+        self.beat = 0.0
+
+    def __enter__(self) -> Relay:
+        self.pulse.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.stopped.set()
+        self.pulse.join(timeout=PULSE_SECONDS * 2)
+
+    def log(self, message: str) -> None:
+        with self.lock:
+            self.rep.log(message)
+
+    def enter(self, label: str, unit: str = "", total: int | None = None) -> None:
+        with self.lock:
+            self.label, self.unit, self.total, self.done = label, unit, total, 0
+            self.entered = self.beat = time.monotonic()
+            self.sent = 0.0
+            self.rep.log(label)
+            self.rep.progress(None, label, total=total)
+
+    def leave(self) -> None:
+        with self.lock:
+            if not self.label:
+                return
+            self.rep.log(f"{self.label} finished in {clock(time.monotonic() - self.entered)}")
+            self.label = ""
+
+    def advance(self, done: int, total: int | None) -> None:
+        with self.lock:
+            now = time.monotonic()
+            self.done, self.total = done, total
+            if now - self.sent < PROGRESS_SECONDS:
+                return
+            self.sent = now
+            self.rep.progress(done / total if total else None, self.label, current=done, total=total)
+
+    def ace(self, value: float, desc: str = "") -> None:
+        with self.lock:
+            now = time.monotonic()
+            if now - self.sent < PROGRESS_SECONDS:
+                return
+            self.sent = now
+            self.rep.progress(float(value), desc or self.label)
+
+    def _pulse(self) -> None:
+        while not self.stopped.wait(PULSE_SECONDS):
+            with self.lock:
+                now = time.monotonic()
+                if not self.label or now - self.beat < HEARTBEAT_SECONDS:
+                    continue
+                self.beat = now
+                self.rep.log(self._alive(now - self.entered))
+
+    def _alive(self, elapsed: float) -> str:
+        parts = [self.label]
+        if self.total:
+            parts.append(f"{self.done}/{self.total} {self.unit}".strip())
+        parts.append(f"{clock(elapsed)} so far")
+        if self.total and self.done:
+            parts.append(f"about {clock(elapsed / self.done * (self.total - self.done))} left")
+        return ", ".join(parts)
+
+
+class Stage:
+    def __init__(self, relay: Relay, total: int | None, divisor: int) -> None:
+        self.relay = relay
+        self.total = total
+        self.divisor = divisor
+        self.completed = 0
+
+    def update(self, completed: int, total: int | None = None) -> None:
+        self.completed = completed
+        if total is not None:
+            self.total = total
+        self.relay.advance(completed // self.divisor, self.total // self.divisor if self.total else None)
+
+    def set_total(self, total: int | None) -> None:
+        self.total = total
+
+    def advance(self, count: int = 1) -> None:
+        self.update(self.completed + count)
+
+    def token(self, phase: str, token: int) -> None:
+        self.advance()
+
+    def finish(self, status: str = "completed") -> None:
+        return
 
 
 def run_yue(
@@ -86,35 +171,29 @@ def run_yue(
     from yue2 import YuE2Pipeline
     from yue2.protocol import GenerationConfig
 
-    relay.progress(None, f"loading and verifying {YUE_MODEL}")
+    relay.enter(f"loading and verifying {YUE_MODEL}")
     config = GenerationConfig(ode_steps=steps)
     pipe = YuE2Pipeline.from_pretrained(
         YUE_MODEL, vae=YUE_VAE, device=device, generation_config=config, progress=False
     )
+    relay.leave()
+    ceilings = {"Planning score": config.abc.max_tokens, "Generating song": config.semantic.max_tokens}
+
+    @contextlib.contextmanager
+    def status(label: str, *, total: int | None = None, unit: str | None = None) -> Iterator[Stage]:
+        name, counted, divisor = YUE_STAGES.get(label, (label.lower(), unit or "", 1))
+        total = ceilings.get(label) if total is None else total
+        relay.enter(name, counted, None if total is None else total // divisor)
+        yield Stage(relay, total, divisor)
+        relay.leave()
+
+    # YuE2 reports solver and decoder steps only through the display seam every stage funnels into.
+    pipe.progress = True
+    pipe._status = status
     try:
-        plan = pipe.plan(
-            style=args.style,
-            lyrics=args.lyrics,
-            seed=seed,
-            on_token=TokenStage(
-                relay,
-                ABC_TOKEN_STRIDE,
-                config.abc.max_tokens,
-                lambda n: f"planning the score, {n} tokens",
-            ),
-        )
-        semantic = pipe.generate_semantic(
-            plan,
-            on_token=TokenStage(
-                relay,
-                SEMANTIC_FRAME_RATE,
-                config.semantic.max_tokens,
-                lambda n: f"composing, {clock(n / SEMANTIC_FRAME_RATE)} of audio",
-            ),
-        )
-        relay.progress(None, f"rendering over {steps} solver steps")
+        plan = pipe.plan(style=args.style, lyrics=args.lyrics, seed=seed)
+        semantic = pipe.generate_semantic(plan)
         latents = pipe.synthesize(semantic)
-        relay.progress(None, "decoding audio")
         audio = pipe.decode(latents)
     finally:
         pipe.close()
@@ -152,7 +231,7 @@ def run_ace(
     from acestep.llm_inference import LLMHandler
     from acestep.model_downloader import DEFAULT_LM_MODEL, ensure_dit_model, ensure_main_model
 
-    relay.progress(None, "fetching ACE-Step weights")
+    relay.enter("fetching ACE-Step weights")
     ok, message = ensure_main_model(checkpoints_dir=checkpoints)
     if not ok:
         raise RuntimeError(message)
@@ -161,7 +240,8 @@ def run_ace(
         if not ok:
             raise RuntimeError(message)
 
-    relay.progress(None, f"loading {recipe.config}")
+    relay.leave()
+    relay.enter(f"loading {recipe.config}")
     dit = AceStepHandler()
     status, ok = dit.initialize_service(
         project_root=str(checkpoints),
@@ -188,6 +268,8 @@ def run_ace(
     if not ok:
         raise RuntimeError(status)
 
+    relay.leave()
+    relay.enter("composing the song")
     result = generate_music(
         dit,
         llm,
@@ -203,6 +285,7 @@ def run_ace(
         save_dir=str(outdir),
         progress=relay.ace,
     )
+    relay.leave()
     if not result.success or not result.audios:
         raise RuntimeError(result.error or result.status_message or "ACE-Step produced no audio")
 
@@ -261,11 +344,10 @@ def run(args: argparse.Namespace, rep: common.Reporter) -> None:
         format=args.format,
     )
     outdir = common.ensure_outdir(args.outdir)
-    relay = Relay(rep, sys.stdout)
     generate = run_yue if recipe.family == "yue" else run_ace
 
     # Both engines narrate weight loading on stdout, which would corrupt the NDJSON stream.
-    with contextlib.redirect_stdout(sys.stderr):
+    with Relay(rep) as relay, contextlib.redirect_stdout(sys.stderr):
         rendered = generate(args, relay, recipe, outdir, seed, steps, device)
 
     target = deliver(rendered.audio, args.format)

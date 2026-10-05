@@ -82,6 +82,8 @@ class Reporter:
         self.quiet = quiet
         self.started = time.monotonic()
         self.artifacts: list[dict[str, Any]] = []
+        # Captured here so a task redirecting stdout around a library cannot swallow the event stream.
+        self.out = sys.stdout
         self._last_pretty_len = 0
 
     @classmethod
@@ -150,8 +152,8 @@ class Reporter:
 
     def _emit(self, payload: dict[str, Any]) -> None:
         if self.json_mode:
-            sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
-            sys.stdout.flush()
+            self.out.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            self.out.flush()
             return
         self._pretty(payload)
 
@@ -159,20 +161,20 @@ class Reporter:
         kind = payload["event"]
         if kind == "artifact":
             self._clear_line()
-            print(payload["path"])
+            print(payload["path"], file=self.out)
             return
         if kind == "result":
             self._clear_line()
             text = payload["data"].get("text")
             if isinstance(text, str):
-                print(text)
+                print(text, file=self.out)
             return
         if kind == "delta":
-            print(payload["message"], end="", flush=True)
+            print(payload["message"], end="", flush=True, file=self.out)
             return
         if kind == "chat":
             self._clear_line()
-            print()
+            print(file=self.out)
             return
         if self.quiet:
             return
