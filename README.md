@@ -8,7 +8,7 @@
 
 ---
 
-Tiny AI Suite runs eleven local AI models on Apple Silicon: stem separation, denoising, transcription, dictation, speech synthesis, voice cloning, chat, document conversion, OCR, image generation and image upscaling. Each one is a self-contained uv project under `ai-scripts/`, and one Go binary serves a web app that runs them and streams their progress back.
+Tiny AI Suite runs twelve local AI models on Apple Silicon: stem separation, denoising, transcription, song generation, dictation, speech synthesis, voice cloning, chat, document conversion, OCR, image generation and image upscaling. Each one is a self-contained uv project under `ai-scripts/`, and one Go binary serves a web app that runs them and streams their progress back.
 
 It exists because a Mac with unified memory outruns a free Colab T4 and never disconnects mid-job. Nothing leaves the machine, and there is no account, no queue and no API key.
 
@@ -19,6 +19,7 @@ It exists because a Mac with unified memory outruns a free Colab T4 and never di
 | Stem Separator | BS Roformer SW | Metal (torch MPS) | 4 or 6 stems, or drums or vocals against everything else, plus a zip |
 | Audio Enhancer | DeepFilterNet3 | Metal or CPU | denoised wav, original kept for A/B |
 | Transcriber | MLX Whisper | Metal (MLX) | timestamped text, SRT, JSON segments |
+| Song Generation | YuE2 3B, ACE-Step 1.5 | Metal (torch MPS) | a full song with vocals from a style prompt and your lyrics, plus YuE2's editable score |
 | Dictation | Qwen3-ASR + Gemma 4 12B | Metal (MLX) | clean written text from a browser recording, spelled your way |
 | Speech Synthesis | Kokoro 82M | Metal (MLX) | wav or mp3 from 9 preset voices |
 | Voice Cloning | F5-TTS | Metal (MLX) | wav in a voice taken from a 5 to 15 second clip, recorded in the browser or uploaded |
@@ -64,7 +65,7 @@ make build
 Each task installs its own dependencies on first use, which takes a minute or two and downloads model weights on top. To get that over with up front:
 
 ```bash
-make py-sync   # every task environment, roughly 9 GB on disk
+make py-sync   # every task environment, roughly 10 GB on disk
 make voices    # the three built-in voice cloning reference clips
 ```
 
@@ -79,6 +80,8 @@ uv run --project ai-scripts/transcribe transcribe --input talk.opus --outdir out
 uv run --project ai-scripts/dictate dictate --input note.m4a --lexicon data/lexicon.json --outdir out
 uv run --project ai-scripts/stems stems --input song.mp3 --preset drums-best --format mp3 --outdir out
 uv run --project ai-scripts/tts tts --text "Ready when you are." --voice bf_emma --outdir out
+uv run --project ai-scripts/songgen songgen --style "English, warm piano pop, expressive female voice, 88 BPM" --lyrics "$(cat lyrics.txt)" --seed 42 --outdir out
+uv run --project ai-scripts/songgen songgen --style "Spanish, jazz-funk, Rhodes and horns" --lyrics "$(cat lyrics.txt)" --model ace-base --duration 180 --outdir out
 uv run --project ai-scripts/imagegen imagegen --prompt "a red fox in fresh snow" --seed 42 --variants 3 --outdir out
 uv run --project ai-scripts/imagegen imagegen --prompt "a finished oil painting of this scene" --reference sketch.png --size match --outdir out
 echo '{"text":"hello"}' | uv run --project ai-scripts/chat chat --model mlx-community/gemma-4-e4b-it-4bit --outdir out
@@ -96,7 +99,7 @@ ai-scripts/
 └── upscale/
 ```
 
-Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: DeepFilterNet holds Audio Enhancer on torch 2.8 and numpy 1.26 while every other torch task resolves to 2.13 and 2.5, so a single environment for all eleven does not exist. Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
+Each task is its own uv project with its own lockfile and virtualenv, sharing only `common` as an editable path dependency. That isolation is not cosmetic: DeepFilterNet holds Audio Enhancer on torch 2.8 and numpy 1.26 while every other torch task resolves to 2.13 and 2.5, so a single environment for all twelve does not exist. Song Generation also carries two `override-dependencies` entries, because YuE2 pins torch 2.10 and ACE-Step caps setuptools below 72, and a bf16 causal attention on Metal leaks future keys through torch 2.12.1 (pytorch/pytorch#195910). Adding a task is `uv init --package --no-workspace ai-scripts/<name>`, then `uv add --editable ../common`.
 
 ### Server flags
 
@@ -146,6 +149,10 @@ curl -X POST localhost:7777/api/jobs/$ID/finish   # closes the chat and writes t
 - **Klein base models are the slow tier.** They run 50 steps against the distilled 4, and take a real guidance scale that the distilled ones reject.
 - **Qwen-Image is the literal tier.** It takes two transformer passes per step where Klein takes one, so it follows a long description more closely and finishes in minutes rather than seconds.
 - **Qwen edits through separate weights.** Picking it with reference pictures loads Qwen-Image-Edit rather than Qwen-Image, so the first such run downloads a second checkpoint. Klein reuses one set of weights for both.
+- **Only ACE-Step takes a song length.** YuE2 has no length field at all, so its length falls out of the lyrics, the score's bar count and tempo, and it stops at six minutes.
+- **A long YuE2 song can exhaust memory.** Its attention cache returns a view that grows one slot per token and Metal specializes a kernel per shape, so driver memory climbs with length rather than with size. Keep a request to roughly four minutes of lyrics.
+- **Song weights are large too.** YuE2 is 7.8 GB with its decoder. The ACE-Step main repository is 10 GB and covers the turbo checkpoint, the VAE, the text encoder and the songwriter LM, and the base checkpoint is a further 4.8 GB.
+- **YuE2 weights are non-commercial.** Its code is Apache 2.0 and its checkpoints are CC BY-NC 4.0, with a licensor grant letting individual creators sell and license what they generate. ACE-Step is MIT on both. Neither is gated, so both download without a HuggingFace account.
 - **LoRAs live in `data/loras/`.** The form uploads into it and the runner exports it as `LORA_LIBRARY_PATH`, so a bare name resolves. A HuggingFace repo id or a `.safetensors` path still works, several separated by commas, each optionally suffixed with `:0.5` to set its strength.
 - **Voice cloning cuts a long reference.** F5-TTS conditions on the reference clip and the new speech as one sequence, so anything past 15 seconds is dropped and the transcript is taken from what remains. A longer clip left whole comes back as babble.
 - **First run of a task is slow.** It resolves an environment and downloads weights. Later runs start in about a second.
